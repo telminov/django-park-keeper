@@ -9,4 +9,8 @@ setup(
     url='https://github.com/telminov/shuffler',
     packages=['parkkeeper',],
     license='The MIT License',
+    install_requires=[
+        'django',
+        'requests',
+    ],
 )
