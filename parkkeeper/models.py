@@ -28,11 +28,14 @@ class State(models.Model):
     def __unicode__(self):
         return self.name
 
+    def get_status(self):
+        # TODO
+        pass
 
 class CheckResult(models.Model):
     state = models.ForeignKey(State, related_name='check_results')
     check_type = models.CharField(max_length=10, choices=TYPE_CHOICE, db_index=True)
-    result = models.IntegerField(choices=CODE_CHOICES)
+    result = models.IntegerField(choices=CODE_CHOICES, db_index=True)
     description = models.TextField()
     dc = models.DateTimeField(auto_now_add=True, db_index=True)
 
