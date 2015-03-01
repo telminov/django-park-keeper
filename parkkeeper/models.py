@@ -7,9 +7,9 @@ OK_CODE = 0
 WARNING_CODE = 1
 ERROR_CODE = 2
 CODE_CHOICES = (
-    ('ok', OK_CODE),
-    ('warning', WARNING_CODE),
-    ('error', ERROR_CODE),
+    (OK_CODE, 'ok'),
+    (WARNING_CODE, 'warning'),
+    (ERROR_CODE, 'error'),
 )
 
 SHELL_CHECK_TYPE = 'shell'
@@ -30,7 +30,7 @@ class State(models.Model):
 
 
 class CheckResult(models.Model):
-    state = models.ForeignKey(State)
+    state = models.ForeignKey(State, related_name='check_results')
     check_type = models.CharField(max_length=10, choices=TYPE_CHOICE, db_index=True)
     result = models.IntegerField(choices=CODE_CHOICES)
     description = models.TextField()
@@ -41,7 +41,7 @@ class CheckResult(models.Model):
 
 class CheckerSettings(models.Model):
     CHECK_TYPE = None
-    state = models.ForeignKey(State)
+    # state = models.ForeignKey(State)
     period = models.IntegerField(help_text='seconds')
 
     class Meta:
@@ -49,6 +49,7 @@ class CheckerSettings(models.Model):
 
 class ShellCheckerSettings(CheckerSettings):
     CHECK_TYPE = SHELL_CHECK_TYPE
+    state = models.ForeignKey(State, related_name='shell_checker_settings')
     command_template = models.TextField()
 
     def render_command(self):
@@ -59,6 +60,7 @@ class ShellCheckerSettings(CheckerSettings):
 
 class HttpCheckerSettings(CheckerSettings):
     CHECK_TYPE = HTTP_CHECK_TYPE
+    state = models.ForeignKey(State, related_name='http_checker_settings')
     url = models.URLField()
     min_ok_status = models.PositiveSmallIntegerField(help_text=u'minimal "ok" http status value')
     max_ok_status = models.PositiveSmallIntegerField(help_text=u'maximum "ok" http status value')
