@@ -27,7 +27,7 @@ class State(models.Model):
 
 class CheckResult(models.Model):
     state = models.ForeignKey(State)
-    check_type = models.CharField(choices=TYPE_CHOICE)
+    check_type = models.CharField(max_length=10, choices=TYPE_CHOICE)
     result = models.IntegerField(choices=CODE_CHOICES)
     description = models.TextField()
 
