@@ -6,7 +6,7 @@ setup(
     version='0.0.1',
     description='Monitoring and services administration.',
     author='Telminov Sergey',
-    url='https://github.com/telminov/shuffler',
+    url='https://github.com/telminov/django-park-keeper',
     packages=['parkkeeper',],
     license='The MIT License',
     install_requires=[
