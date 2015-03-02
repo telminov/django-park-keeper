@@ -20,5 +20,10 @@ class CheckResult(rest_serializers.ModelSerializer):
 class State(rest_serializers.ModelSerializer):
     shell_checker_settings = ShellCheckerSettings(many=True, read_only=True)
     http_checker_settings = HttpCheckerSettings(many=True, read_only=True)
+    status_name = rest_serializers.SerializerMethodField()
+
     class Meta:
         model = models.State
+
+    def get_status_name(self, obj):
+        return obj.get_status_name()

@@ -28,9 +28,13 @@ class State(models.Model):
     def __unicode__(self):
         return self.name
 
-    def get_status(self):
+    def get_status_code(self):
         # TODO
-        pass
+        return OK_CODE
+
+    def get_status_name(self):
+        status_code = self.get_status_code()
+        return dict(CODE_CHOICES)[status_code]
 
 class CheckResult(models.Model):
     state = models.ForeignKey(State, related_name='check_results')
