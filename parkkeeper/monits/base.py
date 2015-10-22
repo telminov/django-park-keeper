@@ -6,8 +6,7 @@ from typing import Dict
 import sys
 
 from django.conf import settings
-from django.utils.timezone import now
-from parkkeeper.utils import get_mongo_db
+from parkkeeper import models
 
 
 class DuplicatedMonitNameException(Exception):
@@ -16,6 +15,10 @@ class DuplicatedMonitNameException(Exception):
 class Monit(metaclass=ABCMeta):
     name = None
     description = None
+
+    @abstractmethod
+    def check(self, host: str, **kwargs) -> models.CheckResult:
+        pass
 
     @classmethod
     def get_monit(cls, name: str) -> 'Monit':
@@ -62,24 +65,3 @@ class Monit(metaclass=ABCMeta):
 
         return cls._monits
 
-    @abstractmethod
-    def check(self, host: str, **kwargs) -> 'CheckResult':
-        pass
-
-    def _save_results(self, result: 'CheckResult'):
-        log_data = {
-            'host': result.host,
-            'success': result.success,
-            'dc': now(),
-            'extra': result.extra,
-        }
-        db = get_mongo_db()
-        db.monit_log.insert_one(log_data)
-
-
-class CheckResult:
-    def __init__(self, host: str, success: bool, dt: datetime.datetime=None, extra: dict=None):
-        self.host = host
-        self.success = success
-        self.dt = dt or now()
-        self.extra = extra

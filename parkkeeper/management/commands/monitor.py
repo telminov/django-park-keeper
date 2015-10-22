@@ -1,6 +1,7 @@
 # coding: utf-8
 from django.core.management import BaseCommand
 from parkkeeper.monits.base import Monit
+from parkkeeper import models
 
 class Command(BaseCommand):
     help = 'Run monitoring checks manually'
@@ -15,6 +16,17 @@ class Command(BaseCommand):
 
         monit = Monit.get_monit(monit_name)()
         for host in hosts:
+            task = models.MonitTask(
+                monit_name=monit_name,
+                host_address=host,
+            )
+            task.save()
+
             result = monit.check(host)
-            print(monit.name, result.host, ':', result.success)
+            task.result = result
+            task.save()
+
+            print(monit.name, task.host_address, ':', result.is_success)
+
+
 
