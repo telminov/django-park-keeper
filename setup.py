@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
     name='django-park-keeper',
-    version='0.0.1',
+    version='0.0.2',
     description='Monitoring and services administration.',
     author='Telminov Sergey',
     url='https://github.com/telminov/django-park-keeper',
@@ -11,7 +11,5 @@ setup(
     license='The MIT License',
     install_requires=[
         'django',
-        'requests',
-        'djangorestframework',
     ],
 )
