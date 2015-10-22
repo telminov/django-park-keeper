@@ -4,9 +4,8 @@ import subprocess
 from parkkeeper.monits.base import Monit, CheckResult
 
 class PingMonit(Monit):
-    @property
-    def name(self):
-        return 'general.ping'
+    name = 'general.ping'
+    description = 'Ping host checking.'
 
     def check(self, host, **kwargs):
         result = subprocess.run(

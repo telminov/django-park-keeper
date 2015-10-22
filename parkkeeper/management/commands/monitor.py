@@ -13,7 +13,7 @@ class Command(BaseCommand):
         monit_name = options['monit_name']
         hosts = options['hosts']
 
-        monit = Monit.get_monit(monit_name)
+        monit = Monit.get_monit(monit_name)()
         for host in hosts:
             result = monit.check(host)
             print(monit.name, result.host, ':', result.success)
