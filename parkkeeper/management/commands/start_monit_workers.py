@@ -1,15 +1,19 @@
 # coding: utf-8
 from django.core.management import BaseCommand
-from parkkeeper.keeper import Worker
+from parkkeeper.keeper import MonitWorker
 
 class Command(BaseCommand):
-    help = 'Start main background keeper process for scheduling jobs'
+    help = 'Start monitoring workers.'
+
+    def add_arguments(self, parser):
+        parser.add_argument('workers_count', type=int, help='Number of workers.', default=2, nargs='?')
 
     def handle(self, *args, **options):
         workers = []
 
-        for i in [1, 2]:
-            worker = Worker()
+        workers_count = options['workers_count']
+        for i in range(0, workers_count):
+            worker = MonitWorker()
             worker.setup(i)
             worker.start()
             workers.append(worker)
