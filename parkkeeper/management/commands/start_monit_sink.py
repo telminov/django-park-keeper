@@ -1,10 +1,10 @@
 # coding: utf-8
 from django.core.management import BaseCommand
-from parkkeeper.keeper import Broker
+from parkkeeper.keeper import Sink
 
 class Command(BaseCommand):
     help = 'Start main background keeper process for scheduling jobs'
 
     def handle(self, *args, **options):
-        broker = Broker()
-        broker.start()
+        sink = Sink()
+        sink.start()

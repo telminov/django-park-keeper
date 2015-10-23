@@ -1,18 +1,18 @@
 # coding: utf-8
 from django.core.management import BaseCommand
-from parkkeeper.keeper import Replayer
+from parkkeeper.keeper import Worker
 
 class Command(BaseCommand):
     help = 'Start main background keeper process for scheduling jobs'
 
     def handle(self, *args, **options):
-        replayers = []
+        workers = []
 
         for i in [1, 2]:
-            replayer = Replayer()
-            replayer.setup(i)
-            replayer.start()
-            replayers.append(replayer)
+            worker = Worker()
+            worker.setup(i)
+            worker.start()
+            workers.append(worker)
 
-        for replayer in replayers:
-            replayer.join()
+        for worker in workers:
+            worker.join()
