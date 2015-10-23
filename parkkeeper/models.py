@@ -60,7 +60,7 @@ class MonitSchedule(models.Model):
         result = get_db().monit_task.aggregate(pipeline=[{
             '$group': {
                 '_id': '$schedule_id',
-                'latest_dc': {'$last': 'dc'},
+                'latest_dc': {'$last': '$dc'},
                 'latest_result_dt': {'$last': '$result.dt'},
                 'latest_is_success': {'$last': '$result.is_success'},
             }
@@ -83,11 +83,16 @@ class MonitSchedule(models.Model):
 
         monit_tasks = []
         for schedule in cls.objects.filter(is_active=True):
-            latest_dc = latest_results[schedule.id]['latest_dc']
-            delta = now() - make_aware(latest_dc)
-            secs_from_last_task = delta.seconds
+            if schedule.id in latest_results:
+                latest_dc = latest_results[schedule.id]['latest_dc']
+                delta = now() - make_aware(latest_dc)
+                secs_from_last_task = delta.seconds
+                need_to_create = secs_from_last_task >= schedule.period
+            else:
+                # tasks did not exists before
+                need_to_create = True
 
-            if secs_from_last_task >= schedule.period:
+            if need_to_create:
                 for host in schedule.get_hosts():
                     task = MonitTask(
                         monit_name=schedule.monit_name,
@@ -114,8 +119,9 @@ class MonitSchedule(models.Model):
             hosts.update(group.hosts.all())
         return hosts
 
-    def get_option(self):
-        return json.load(self.options_json)
+    def get_options(self):
+        if self.options_json:
+            return json.load(self.options_json)
 
     def _get_period(self) -> int:
         """ count of seconds between tow checks """

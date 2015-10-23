@@ -5,6 +5,8 @@ import uuid
 import random
 import zmq
 
+from parkkeeper import models
+from parkkeeper.monits.base import Monit
 
 class MonitScheduler(multiprocessing.Process):
 
@@ -14,12 +16,13 @@ class MonitScheduler(multiprocessing.Process):
         socket.bind("tcp://*:5559")
         print('MonitScheduler started.')
 
+        # TODO: load not done tasks
+
         while True:
-            for _ in [1, 2]:
-                msg = str(random.randint(1, 100))
-                socket.send_string(msg)
-                print('Send message %s' % msg)
-            sleep(5)
+            for task in models.MonitSchedule.create_tasks():
+                print('Send %s for host %s' % (task.monit_name, task.host_address))
+                socket.send_json(task.to_json())
+            sleep(1)
 
 
 class MonitResultCollector(multiprocessing.Process):
@@ -33,8 +36,10 @@ class MonitResultCollector(multiprocessing.Process):
 
         # Switch messages between sockets
         while True:
-            result = result_socket.recv_string()
-            print(result)
+            task_json = result_socket.recv_json()
+            task = models.MonitTask.from_json(task_json)
+            print('MonitResultCollector: task %s for host %s is_success %s' % (
+                task.monit_name, task.host_address, task.result.is_success))
 
 
 class MonitWorker(multiprocessing.Process):
@@ -57,8 +62,20 @@ class MonitWorker(multiprocessing.Process):
         print('Worker start %s' % self.worker_id)
 
         while True:
-            task = task_socket.recv_string()
-            sleep(1)
-            print("Worker %s. Received request: %s" % (self.worker_id, task))
-            result = 'Worker %s process %s' % (self.worker_id, task)
-            result_socket.send_string(result)
+            task_json = task_socket.recv_json()
+            task = models.MonitTask.from_json(task_json)
+            print("Worker %s. Received request: %s for %s" % (self.worker_id, task.monit_name, task.host_address))
+
+            monit_name = task.monit_name
+            monit_class = Monit.get_monit(monit_name)
+            monit = monit_class()
+            result = monit.check(
+                host=task.host_address,
+                options=task.options,
+            )
+            task.result = result
+            task.save()
+            task_json = task.to_json()
+
+            print('Worker %s result is_success: %s' % (self.worker_id, task.result.is_success))
+            result_socket.send_json(task_json)
