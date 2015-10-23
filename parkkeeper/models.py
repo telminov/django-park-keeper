@@ -58,6 +58,8 @@ class MonitSchedule(models.Model):
     @staticmethod
     def get_latest_results() -> Dict[int, dict]:
         result = get_db().monit_task.aggregate(pipeline=[{
+            '$match': {'$or': [{'cancel_dt': None}, {'cancel_dt': {'$exists': False}}]}
+        }, {
             '$group': {
                 '_id': '$schedule_id',
                 'latest_dc': {'$last': '$dc'},
@@ -148,6 +150,11 @@ class CheckResult(mongoengine.EmbeddedDocument):
     extra = mongoengine.DictField()
     dt = mongoengine.DateTimeField(help_text='date and time of result')
 
+class Worker(mongoengine.EmbeddedDocument):
+    uuid = mongoengine.UUIDField()
+    id = mongoengine.StringField()
+    created_dt = mongoengine.DateTimeField()
+    host_name = mongoengine.StringField()
 
 class MonitTask(mongoengine.Document):
     monit_name = mongoengine.StringField()
@@ -159,6 +166,8 @@ class MonitTask(mongoengine.Document):
     dc = mongoengine.DateTimeField(verbose_name='Date and time of task creating')
     cancel_dt = mongoengine.DateTimeField(help_text='for task canceling', null=True)
 
+    worker = mongoengine.EmbeddedDocumentField(Worker, null=True)
+    start_dt = mongoengine.DateTimeField(null=True)
     result = mongoengine.EmbeddedDocumentField(CheckResult, null=True)
 
     def save(self, *args, **kwargs):

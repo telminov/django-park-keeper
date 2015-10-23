@@ -1,8 +1,10 @@
 # coding: utf-8
+import socket
 import multiprocessing
 from time import sleep
 import uuid
 import random
+from django.utils.timezone import now
 import zmq
 
 from parkkeeper import models
@@ -16,7 +18,8 @@ class MonitScheduler(multiprocessing.Process):
         socket.bind("tcp://*:5559")
         print('MonitScheduler started.')
 
-        # TODO: load not done tasks
+        # cancel not started tasks
+        models.MonitTask.objects.filter(start_dt=None).update(cancel_dt=now())
 
         while True:
             for task in models.MonitSchedule.create_tasks():
@@ -43,12 +46,19 @@ class MonitResultCollector(multiprocessing.Process):
 
 
 class MonitWorker(multiprocessing.Process):
+    uuid = None
     worker_id = None
+    created_dt = None
+    host_name = None
 
     def setup(self, worker_id=None):
+        self.uuid = str(uuid.uuid4())
+        self.created_dt = now()
+        self.host_name = socket.gethostname()
+
         if worker_id is None:
-            worker_id = str(uuid.uuid4())
-        self.worker_id = worker_id
+            worker_id = self.uuid
+        self.worker_id = str(worker_id)
 
     def run(self):
         context = zmq.Context()
@@ -69,6 +79,11 @@ class MonitWorker(multiprocessing.Process):
             monit_name = task.monit_name
             monit_class = Monit.get_monit(monit_name)
             monit = monit_class()
+
+            task.start_dt = now()
+            task.worker = self.get_worker()
+            task.save()
+
             result = monit.check(
                 host=task.host_address,
                 options=task.options,
@@ -79,3 +94,11 @@ class MonitWorker(multiprocessing.Process):
 
             print('Worker %s result is_success: %s' % (self.worker_id, task.result.is_success))
             result_socket.send_json(task_json)
+
+    def get_worker(self) -> models.Worker:
+        return models.Worker(
+            id=self.worker_id,
+            uuid=self.uuid,
+            created_dt=self.created_dt,
+            host_name=self.host_name,
+        )
