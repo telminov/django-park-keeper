@@ -1,4 +1,5 @@
 # coding: utf-8
+import multiprocessing
 from time import sleep
 import uuid
 import random
@@ -17,26 +18,52 @@ class Requester:
         while True:
             msg = str(random.randint(1, 100))
             socket.send_string(msg)
-            replay = socket.recv()
+            replay = socket.recv_string()
             print('Replay %s' % replay)
-            sleep(1)
+            sleep(2)
 
-class Replayer:
-    def __init__(self, worker_id):
+class Replayer(multiprocessing.Process):
+    worker_id = None
+
+    def setup(self, worker_id):
         self.worker_id = worker_id
 
-    def start(self):
+    def run(self):
         context = zmq.Context()
         socket = context.socket(zmq.REP)
-        socket.bind("tcp://*:5559")
+        socket.connect("tcp://localhost:5560")
         print('Replayer start')
 
         while True:
             req_msg = socket.recv_string()
-            print("Received request: %s" % req_msg)
+            print("Worker %s. Received request: %s" % (self.worker_id, req_msg))
             rep_msg = 'Worker %s process %s' % (self.worker_id, req_msg)
             socket.send_string(rep_msg)
 
+class Broker:
+    def start(self):
+        context = zmq.Context()
+        frontend = context.socket(zmq.ROUTER)
+        backend = context.socket(zmq.DEALER)
+        frontend.bind("tcp://*:5559")
+        backend.bind("tcp://*:5560")
+
+        # Initialize poll set
+        poller = zmq.Poller()
+        poller.register(frontend, zmq.POLLIN)
+        poller.register(backend, zmq.POLLIN)
+
+        # Switch messages between sockets
+        while True:
+            socks = dict(poller.poll())
+
+            if socks.get(frontend) == zmq.POLLIN:
+                message = frontend.recv_multipart()
+                backend.send_multipart(message)
+
+            if socks.get(backend) == zmq.POLLIN:
+                message = backend.recv_multipart()
+                frontend.send_multipart(message)
 
 #
 # class Keeper:
