@@ -23,7 +23,7 @@ class MonitScheduler(multiprocessing.Process):
 
         while True:
             for task in models.MonitSchedule.create_tasks():
-                print('Send %s for host %s' % (task.monit_name, task.host_address))
+                # print('Send %s for host %s' % (task.monit_name, task.host_address))
                 socket.send_json(task.to_json())
             sleep(1)
 
@@ -35,6 +35,10 @@ class MonitResultCollector(multiprocessing.Process):
 
         result_socket = context.socket(zmq.PULL)
         result_socket.bind("tcp://*:5560")
+
+        publisher_socket = context.socket(zmq.PUB)
+        publisher_socket.bind("tcp://*:5561")
+
         print('MonitResultCollector started.')
 
         while True:
@@ -42,7 +46,14 @@ class MonitResultCollector(multiprocessing.Process):
             task = models.MonitTask.from_json(task_json)
             print('MonitResultCollector: task %s for host %s is_success %s' % (
                 task.monit_name, task.host_address, task.result.is_success))
-            # TODO: add publisher monitoring events
+
+            # publish monitoring results
+            publisher_socket.send_json(task_json)
+
+        result_socket.close()
+        publisher_socket.close()
+        context.term()
+
 
 class MonitWorker(multiprocessing.Process):
     uuid = None

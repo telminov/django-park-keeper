@@ -1,7 +1,10 @@
 # coding: utf-8
 from abc import ABCMeta, abstractclassmethod
 import asyncio
+import json
 from aiohttp import web, MsgType
+from django.utils.timezone import now
+import zmq
 
 def start_server():
     app = web.Application()
@@ -25,7 +28,7 @@ def start_server():
 
 
 def add_routes(app):
-    app.router.add_route('GET', '/ws_test', MonitResultHandler().get_handler)
+    app.router.add_route('GET', '/monits', MonitResultHandler().get_handler)
 
 
 
@@ -40,7 +43,7 @@ class WebSocketHandler(metaclass=ABCMeta):
             msg = await self.ws.receive()
 
             if msg.tp == MsgType.text:
-                self.process_msg(msg)
+                await self.process_msg(msg)
             elif msg.tp == MsgType.close:
                 print('websocket connection closed')
             elif msg.tp == MsgType.error:
@@ -50,16 +53,30 @@ class WebSocketHandler(metaclass=ABCMeta):
         return self.ws
 
     @abstractclassmethod
-    def process_msg(self, msg):
+    async def process_msg(self, msg):
         if msg.data == 'close':
             await self.ws.close()
         else:
             self.ws.send_str(msg.data + '/answer')
 
 
-
 class MonitResultHandler(WebSocketHandler):
-    def process_msg(self, msg):
-        # TODO: subscribing on monitoring events
-        # zmq.NOBLOCK
-        self.ws.send_str('{"message": "test"}')
+    async def process_msg(self, msg):
+        context = zmq.Context()
+        subscriber_socket = context.socket(zmq.SUB)
+        subscriber_socket.connect("tcp://localhost:5561")
+        subscriber_socket.setsockopt(zmq.SUBSCRIBE, b'')
+
+        try:
+            while True:
+                print(now().isoformat())
+                try:
+                    status = subscriber_socket.recv_json(flags=zmq.NOBLOCK)
+                    print(status)
+                    self.ws.send_str(json.dumps(status))
+                except zmq.error.Again:
+                    pass
+                await asyncio.sleep(1)
+        finally:
+            subscriber_socket.close()
+            context.term()
