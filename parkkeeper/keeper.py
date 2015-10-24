@@ -37,13 +37,12 @@ class MonitResultCollector(multiprocessing.Process):
         result_socket.bind("tcp://*:5560")
         print('MonitResultCollector started.')
 
-        # Switch messages between sockets
         while True:
             task_json = result_socket.recv_json()
             task = models.MonitTask.from_json(task_json)
             print('MonitResultCollector: task %s for host %s is_success %s' % (
                 task.monit_name, task.host_address, task.result.is_success))
-
+            # TODO: add publisher monitoring events
 
 class MonitWorker(multiprocessing.Process):
     uuid = None
