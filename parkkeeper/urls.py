@@ -5,6 +5,8 @@ from parkkeeper import views
 
 router = routers.DefaultRouter()
 router.register('host', views.HostViewSet)
+router.register('host_group', views.HostGroupViewSet)
+router.register('monit_schedule', views.MonitScheduleViewSet)
 
 
 urlpatterns = patterns('parkkeeper.views',

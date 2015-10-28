@@ -1,8 +1,23 @@
 # coding: utf-8
-import rest_framework.serializers
+from rest_framework import serializers
 from parkkeeper import models
 
-
-class Host(rest_framework.serializers.ModelSerializer):
+class Host(serializers.ModelSerializer):
     class Meta:
         model = models.Host
+
+
+class HostGroup(serializers.ModelSerializer):
+    hosts = serializers.ManyRelatedField(Host())
+
+    class Meta:
+        model = models.HostGroup
+
+
+class MonitSchedule(serializers.ModelSerializer):
+
+    hosts = serializers.ManyRelatedField(Host())
+    groups = serializers.ManyRelatedField(HostGroup())
+
+    class Meta:
+        model = models.MonitSchedule
