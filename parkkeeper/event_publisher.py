@@ -5,30 +5,34 @@ from django.conf import settings
 from django.utils.timezone import now
 import zmq
 
+MONIT_STATUS_EVENT = b'MONIT_STATUS_EVENT'
 
 class EventPublisher(multiprocessing.Process):
 
     @staticmethod
-    def emit_event(msg):
+    def emit_event(msg, topic_filter):
+        msg = msg.encode('utf-8')
+
         context = zmq.Context()
         socket = context.socket(zmq.PUSH)
         socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_EVENT_RECEIVER_PORT))
-        socket.send_string(msg)
+        socket.send_multipart([topic_filter, msg])
         socket.close()
 
     @staticmethod
-    async def recv_event():
+    async def recv_event(topic_filter):
         context = zmq.Context()
         subscriber_socket = context.socket(zmq.SUB)
         subscriber_socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_EVENT_PUBLISHER_PORT))
-        subscriber_socket.setsockopt(zmq.SUBSCRIBE, b'')
+        subscriber_socket.setsockopt(zmq.SUBSCRIBE, topic_filter)
 
         try:
             while True:
                 print('EventPublisher recv_event heart beat', now().isoformat())
                 try:
-                    msg = subscriber_socket.recv_string(flags=zmq.NOBLOCK)
-                    return msg
+                    [topic_filter, msg] = subscriber_socket.recv_multipart(flags=zmq.NOBLOCK)
+                    print('EventPublisher recv_event got ', topic_filter, msg)
+                    return msg.decode('utf-8')
                 except zmq.error.Again:
                     pass
                 await asyncio.sleep(0.5)
@@ -48,9 +52,9 @@ class EventPublisher(multiprocessing.Process):
         print('EventPublisher started.')
 
         while True:
-            msg = receiver_socket.recv_string()
-            print('EventPublisher msg', msg)
-            publisher_socket.send_string(msg)
+            [topic_filter, msg] = receiver_socket.recv_multipart()
+            print('EventPublisher msg', topic_filter, msg)
+            publisher_socket.send_multipart([topic_filter, msg])
 
         receiver_socket.close()
         publisher_socket.close()

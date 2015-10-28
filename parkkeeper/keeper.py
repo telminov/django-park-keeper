@@ -5,7 +5,7 @@ from time import sleep
 import uuid
 from django.conf import settings
 from django.utils.timezone import now
-from parkkeeper.event_publisher import EventPublisher
+from parkkeeper.event_publisher import EventPublisher, MONIT_STATUS_EVENT
 import zmq
 
 from parkkeeper import models
@@ -74,7 +74,7 @@ class MonitWorker(multiprocessing.Process):
             task_json = task.to_json()
 
             print('Worker %s result is_success: %s' % (self.worker_id, task.result.is_success))
-            EventPublisher.emit_event(task_json)
+            EventPublisher.emit_event(task_json, MONIT_STATUS_EVENT)
 
     def get_worker(self) -> models.Worker:
         return models.Worker(

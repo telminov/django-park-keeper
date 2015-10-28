@@ -6,7 +6,8 @@ from aiohttp import web, MsgType
 from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
-from parkkeeper.event_publisher import EventPublisher
+from parkkeeper.event_publisher import EventPublisher, MONIT_STATUS_EVENT
+
 
 def start_server():
     app = web.Application()
@@ -92,9 +93,10 @@ class MonitResultHandler(WebSocketHandler):
 
     async def background(self):
         while True:
-            task_json = await EventPublisher.recv_event()
+            task_json = await EventPublisher.recv_event(MONIT_STATUS_EVENT)
+            # print('task_json', task_json)
             task = models.MonitTask.from_json(task_json)
-            print(task)
+            print('task', task)
             response = {
                 'monit_name': task.monit_name,
                 'host_address': task.host_address,
