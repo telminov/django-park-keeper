@@ -57,19 +57,24 @@ class MonitSchedule(models.Model):
 
     @staticmethod
     def get_latest_results() -> Dict[int, dict]:
-        result = get_db().monit_task.aggregate(pipeline=[{
-            '$match': {'$or': [{'cancel_dt': None}, {'cancel_dt': {'$exists': False}}]}
-        }, {
-            '$group': {
-                '_id': '$schedule_id',
-                'latest_dc': {'$last': '$dc'},
-                'latest_result_dt': {'$last': '$result.dt'},
-                'latest_is_success': {'$last': '$result.is_success'},
+        result = get_db().monit_task.aggregate(pipeline=[
+            {
+                '$match': {'$or': [{'cancel_dt': None}, {'cancel_dt': {'$exists': False}}]}
+            },
+            {
+                '$group': {
+                    '_id': '$schedule_id',
+                    'latest_dc': {'$last': '$dc'},
+                    'latest_result_dt': {'$last': '$result.dt'},
+                    'latest_is_success': {'$last': '$result.is_success'},
+                }
+            },
+            {
+                '$project': {
+                    'latest_result_dt': 1, 'latest_is_success': 1,  'latest_dc': 1, 'schedule_id': '$_id', '_id': 0
+                }
             }
-        }, {'$project': {
-            'latest_result_dt': 1, 'latest_is_success': 1,  'latest_dc': 1, 'schedule_id': '$_id', '_id': 0
-            }
-        }])
+        ])
 
         latest_results = {}
         for item in result:
