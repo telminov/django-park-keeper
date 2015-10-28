@@ -1,12 +1,12 @@
 # coding: utf-8
-from abc import ABCMeta, abstractclassmethod
+from abc import ABCMeta
 import asyncio
 import json
 from aiohttp import web, MsgType
 from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
-import zmq
+from parkkeeper.event_publisher import EventPublisher
 
 def start_server():
     app = web.Application()
@@ -88,32 +88,19 @@ class WebSocketHandler(metaclass=ABCMeta):
 
 class MonitResultHandler(WebSocketHandler):
     need_background = True
+    stop_background_timeout = 0.1
 
     async def background(self):
-        context = zmq.Context()
-        subscriber_socket = context.socket(zmq.SUB)
-        subscriber_socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_EVENT_PUBLISHER_PORT))
-        subscriber_socket.setsockopt(zmq.SUBSCRIBE, b'')
-
-        try:
-            while not self.ws.closed:
-                print(now().isoformat())
-                try:
-                    task_json = subscriber_socket.recv_string(flags=zmq.NOBLOCK)
-                    task = models.MonitTask.from_json(task_json)
-                    print(task)
-                    response = {
-                        'monit_name': task.monit_name,
-                        'host_address': task.host_address,
-                        'schedule_id': task.schedule_id,
-                        'result_dt': task.result.dt.isoformat(sep=' '),
-                        'extra': task.result.extra,
-                        'is_success': task.result.is_success,
-                    }
-                    self.ws.send_str(json.dumps(response))
-                except zmq.error.Again:
-                    pass
-                await asyncio.sleep(0.5)
-        finally:
-            subscriber_socket.close()
-            context.term()
+        while True:
+            task_json = await EventPublisher.recv_event()
+            task = models.MonitTask.from_json(task_json)
+            print(task)
+            response = {
+                'monit_name': task.monit_name,
+                'host_address': task.host_address,
+                'schedule_id': task.schedule_id,
+                'result_dt': task.result.dt.isoformat(sep=' '),
+                'extra': task.result.extra,
+                'is_success': task.result.is_success,
+            }
+            self.ws.send_str(json.dumps(response))
