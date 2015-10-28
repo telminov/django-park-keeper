@@ -1,6 +1,13 @@
 # coding: utf-8
 from django.conf.urls import url, patterns
+from rest_framework import routers
+from parkkeeper import views
 
-urlpatterns = patterns('parkkeeper.views',
+router = routers.DefaultRouter()
+router.register('host', views.HostViewSet)
+
+urlpatterns = router.urls
+
+urlpatterns += patterns('parkkeeper.views',
     url(r'^$', 'index'),
 )

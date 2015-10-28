@@ -10,6 +10,6 @@ setup(
     packages=['parkkeeper',],
     license='The MIT License',
     install_requires=[
-        'django', 'mongoengine', 'pyzmq', 'aiohttp'
+        'django', 'mongoengine', 'pyzmq', 'aiohttp', 'djangorestframework'
     ],
 )
