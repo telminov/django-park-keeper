@@ -6,8 +6,9 @@ from parkkeeper import views
 router = routers.DefaultRouter()
 router.register('host', views.HostViewSet)
 
-urlpatterns = router.urls
 
-urlpatterns += patterns('parkkeeper.views',
+urlpatterns = patterns('parkkeeper.views',
     url(r'^$', 'index'),
 )
+
+urlpatterns += router.urls
