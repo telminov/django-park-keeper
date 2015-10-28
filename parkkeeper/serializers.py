@@ -16,8 +16,15 @@ class HostGroup(serializers.ModelSerializer):
 
 class MonitSchedule(serializers.ModelSerializer):
 
-    hosts = serializers.ManyRelatedField(Host())
-    groups = serializers.ManyRelatedField(HostGroup())
+    # hosts = serializers.ManyRelatedField(Host())
+    # groups = serializers.ManyRelatedField(HostGroup())
+    all_hosts = serializers.SerializerMethodField()
 
     class Meta:
         model = models.MonitSchedule
+
+    def get_all_hosts(self, obj):
+        all_hosts_data = []
+        for host in obj.get_hosts():
+            all_hosts_data.append(Host(host).data)
+        return all_hosts_data

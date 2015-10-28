@@ -52,4 +52,4 @@ def monit_status_latest(request, format=None):
             }
         }
     ])
-    return Response({'monit_status_latest': [result]})
+    return Response({'monit_status_latest': result})
