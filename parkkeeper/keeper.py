@@ -4,6 +4,7 @@ import multiprocessing
 from time import sleep
 import uuid
 import random
+from django.conf import settings
 from django.utils.timezone import now
 import zmq
 
@@ -15,7 +16,7 @@ class MonitScheduler(multiprocessing.Process):
     def run(self):
         context = zmq.Context()
         socket = context.socket(zmq.PUSH)
-        socket.bind("tcp://*:5559")
+        socket.bind("tcp://*:%s" % (settings.ZMQ_MONIT_SCHEDULER_PORT, ))
         print('MonitScheduler started.')
 
         # cancel not started tasks
@@ -34,10 +35,10 @@ class MonitResultCollector(multiprocessing.Process):
         context = zmq.Context()
 
         result_socket = context.socket(zmq.PULL)
-        result_socket.bind("tcp://*:5560")
+        result_socket.bind("tcp://*:%s" % settings.ZMQ_EVENT_RECEIVER_PORT)
 
         publisher_socket = context.socket(zmq.PUB)
-        publisher_socket.bind("tcp://*:5561")
+        publisher_socket.bind("tcp://*:%s" % settings.ZMQ_EVENT_PUBLISHER_PORT)
 
         print('MonitResultCollector started.')
 
@@ -74,10 +75,10 @@ class MonitWorker(multiprocessing.Process):
         context = zmq.Context()
 
         task_socket = context.socket(zmq.PULL)
-        task_socket.connect("tcp://localhost:5559")
+        task_socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_MONIT_SCHEDULER_PORT))
 
         result_socket = context.socket(zmq.PUSH)
-        result_socket.connect("tcp://localhost:5560")
+        result_socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_EVENT_RECEIVER_PORT))
 
         print('Worker start %s' % self.worker_id)
 

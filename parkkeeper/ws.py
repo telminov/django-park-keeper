@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractclassmethod
 import asyncio
 import json
 from aiohttp import web, MsgType
+from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
 import zmq
@@ -13,7 +14,7 @@ def start_server():
 
     loop = asyncio.get_event_loop()
     handler = app.make_handler()
-    f = loop.create_server(handler, '0.0.0.0', 8080)
+    f = loop.create_server(handler, '0.0.0.0', settings.WEB_SOCKET_SERVER_PORT)
     srv = loop.run_until_complete(f)
     print('serving on', srv.sockets[0].getsockname())
     try:
@@ -91,7 +92,7 @@ class MonitResultHandler(WebSocketHandler):
     async def background(self):
         context = zmq.Context()
         subscriber_socket = context.socket(zmq.SUB)
-        subscriber_socket.connect("tcp://localhost:5561")
+        subscriber_socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_EVENT_PUBLISHER_PORT))
         subscriber_socket.setsockopt(zmq.SUBSCRIBE, b'')
 
         try:
