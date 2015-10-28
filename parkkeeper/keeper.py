@@ -3,13 +3,14 @@ import socket
 import multiprocessing
 from time import sleep
 import uuid
-import random
 from django.conf import settings
 from django.utils.timezone import now
+from parkkeeper.event_publisher import EventPublisher
 import zmq
 
 from parkkeeper import models
 from parkkeeper.monits.base import Monit
+
 
 class MonitScheduler(multiprocessing.Process):
 
@@ -24,36 +25,8 @@ class MonitScheduler(multiprocessing.Process):
 
         while True:
             for task in models.MonitSchedule.create_tasks():
-                # print('Send %s for host %s' % (task.monit_name, task.host_address))
                 socket.send_json(task.to_json())
             sleep(1)
-
-
-class MonitResultCollector(multiprocessing.Process):
-
-    def run(self):
-        context = zmq.Context()
-
-        result_socket = context.socket(zmq.PULL)
-        result_socket.bind("tcp://*:%s" % settings.ZMQ_EVENT_RECEIVER_PORT)
-
-        publisher_socket = context.socket(zmq.PUB)
-        publisher_socket.bind("tcp://*:%s" % settings.ZMQ_EVENT_PUBLISHER_PORT)
-
-        print('MonitResultCollector started.')
-
-        while True:
-            task_json = result_socket.recv_json()
-            task = models.MonitTask.from_json(task_json)
-            print('MonitResultCollector: task %s for host %s is_success %s' % (
-                task.monit_name, task.host_address, task.result.is_success))
-
-            # publish monitoring results
-            publisher_socket.send_json(task_json)
-
-        result_socket.close()
-        publisher_socket.close()
-        context.term()
 
 
 class MonitWorker(multiprocessing.Process):
@@ -76,9 +49,6 @@ class MonitWorker(multiprocessing.Process):
 
         task_socket = context.socket(zmq.PULL)
         task_socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_MONIT_SCHEDULER_PORT))
-
-        result_socket = context.socket(zmq.PUSH)
-        result_socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_EVENT_RECEIVER_PORT))
 
         print('Worker start %s' % self.worker_id)
 
@@ -104,7 +74,7 @@ class MonitWorker(multiprocessing.Process):
             task_json = task.to_json()
 
             print('Worker %s result is_success: %s' % (self.worker_id, task.result.is_success))
-            result_socket.send_json(task_json)
+            EventPublisher.emit_event(task_json)
 
     def get_worker(self) -> models.Worker:
         return models.Worker(

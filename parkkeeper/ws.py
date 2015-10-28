@@ -99,7 +99,7 @@ class MonitResultHandler(WebSocketHandler):
             while not self.ws.closed:
                 print(now().isoformat())
                 try:
-                    task_json = subscriber_socket.recv_json(flags=zmq.NOBLOCK)
+                    task_json = subscriber_socket.recv_string(flags=zmq.NOBLOCK)
                     task = models.MonitTask.from_json(task_json)
                     print(task)
                     response = {
