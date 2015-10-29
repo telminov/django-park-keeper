@@ -5,7 +5,7 @@ from time import sleep
 import uuid
 from django.conf import settings
 from django.utils.timezone import now
-from parkkeeper.event_publisher import EventPublisher, MONIT_STATUS_EVENT
+from parkkeeper.event_publisher import EventPublisher, MONIT_STATUS_EVENT, MONIT_WORKER_EVENT, MONIT_TASK_EVENT
 import zmq
 
 from parkkeeper import models
@@ -24,8 +24,12 @@ class MonitScheduler(multiprocessing.Process):
         models.MonitTask.objects.filter(start_dt=None).update(cancel_dt=now())
 
         while True:
-            for task in models.MonitSchedule.create_tasks():
-                socket.send_json(task.to_json())
+            tasks = models.MonitSchedule.create_tasks()
+            if tasks:
+                for task in tasks:
+                    socket.send_json(task.to_json())
+                # task created event
+                EventPublisher.emit_event(MONIT_TASK_EVENT)
             sleep(1)
 
 
@@ -64,6 +68,8 @@ class MonitWorker(multiprocessing.Process):
             task.start_dt = now()
             task.worker = self.get_worker()
             task.save()
+            # worker busy
+            EventPublisher.emit_event(MONIT_WORKER_EVENT, task.worker.to_json())
 
             result = monit.check(
                 host=task.host_address,
@@ -74,7 +80,12 @@ class MonitWorker(multiprocessing.Process):
             task_json = task.to_json()
 
             print('Worker %s result is_success: %s' % (self.worker_id, task.result.is_success))
-            EventPublisher.emit_event(task_json, MONIT_STATUS_EVENT)
+            # get new monitoring results
+            EventPublisher.emit_event(MONIT_STATUS_EVENT, task_json)
+            # worker free event
+            EventPublisher.emit_event(MONIT_WORKER_EVENT, task.worker.to_json())
+            # task completed event
+            EventPublisher.emit_event(MONIT_TASK_EVENT)
 
     def get_worker(self) -> models.Worker:
         return models.Worker(

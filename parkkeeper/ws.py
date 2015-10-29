@@ -6,7 +6,7 @@ from aiohttp import web, MsgType
 from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
-from parkkeeper.event_publisher import EventPublisher, MONIT_STATUS_EVENT
+from parkkeeper.event_publisher import EventPublisher, MONIT_STATUS_EVENT, MONIT_TASK_EVENT, MONIT_WORKER_EVENT
 
 
 def start_server():
@@ -32,6 +32,8 @@ def start_server():
 
 def add_routes(app):
     app.router.add_route('GET', '/monits', MonitResultHandler().get_handler)
+    app.router.add_route('GET', '/waiting_tasks', MonitWaitingTaskHandler().get_handler)
+    app.router.add_route('GET', '/started_tasks', MonitStartedTaskHandler().get_handler)
 
 
 class WebSocketHandler(metaclass=ABCMeta):
@@ -94,15 +96,55 @@ class MonitResultHandler(WebSocketHandler):
     async def background(self):
         while True:
             task_json = await EventPublisher.recv_event(MONIT_STATUS_EVENT)
-            # print('task_json', task_json)
+            
             task = models.MonitTask.from_json(task_json)
             print('task', task)
-            response = {
-                'monit_name': task.monit_name,
-                'host_address': task.host_address,
-                'schedule_id': task.schedule_id,
-                'result_dt': task.result.dt.isoformat(sep=' '),
-                'extra': task.result.extra,
-                'is_success': task.result.is_success,
-            }
+            response = _get_task_represent(task)
             self.ws.send_str(json.dumps(response))
+
+
+class MonitWaitingTaskHandler(WebSocketHandler):
+    need_background = True
+    stop_background_timeout = 0.1
+
+    async def background(self):
+        while True:
+            response = {'waiting_tasks': []}
+            waiting_tasks = models.MonitTask.get_waiting_tasks()
+            for task in waiting_tasks:
+                response['waiting_tasks'].append(_get_task_represent(task))
+            print('waiting_tasks count', len(response['waiting_tasks']))
+
+            self.ws.send_str(json.dumps(response))
+
+            # waiting new events
+            await EventPublisher.recv_event(MONIT_TASK_EVENT)
+
+
+class MonitStartedTaskHandler(WebSocketHandler):
+    need_background = True
+    stop_background_timeout = 0.1
+
+    async def background(self):
+        while True:
+            response = {'started_tasks': []}
+            started_tasks = models.MonitTask.get_started_tasks()
+            for task in started_tasks:
+                response['started_tasks'].append(_get_task_represent(task))
+            print('started_tasks count', len(response['started_tasks']))
+
+            self.ws.send_str(json.dumps(response))
+
+            # waiting new events
+            await EventPublisher.recv_event(MONIT_WORKER_EVENT)
+
+
+def _get_task_represent(task):
+    return {
+        'monit_name': task.monit_name,
+        'host_address': task.host_address,
+        'schedule_id': task.schedule_id,
+        'result_dt': task.result.dt.isoformat(sep=' '),
+        'extra': task.result.extra,
+        'is_success': task.result.is_success,
+    }

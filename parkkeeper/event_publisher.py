@@ -6,11 +6,13 @@ from django.utils.timezone import now
 import zmq
 
 MONIT_STATUS_EVENT = b'MONIT_STATUS_EVENT'
+MONIT_TASK_EVENT = b'MONIT_TASK_EVENT'
+MONIT_WORKER_EVENT = b'MONIT_WORKER_EVENT'
 
 class EventPublisher(multiprocessing.Process):
 
     @staticmethod
-    def emit_event(msg, topic_filter):
+    def emit_event(topic_filter, msg=''):
         msg = msg.encode('utf-8')
 
         context = zmq.Context()
