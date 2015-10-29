@@ -179,3 +179,18 @@ class MonitTask(mongoengine.Document):
         if not self.dc:
             self.dc = now()
         super().save(*args, **kwargs)
+
+    @classmethod
+    def get_waiting_tasks(cls):
+        return cls.objects.filter(
+            cancel_dt=None,
+            start_dt=None,
+        )
+
+    @classmethod
+    def get_started_tasks(cls):
+        return cls.objects.filter(
+            cancel_dt=None,
+            start_dt__ne=None,
+            result__dt=None,
+        )
