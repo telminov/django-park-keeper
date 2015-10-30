@@ -170,6 +170,7 @@ class MonitTask(mongoengine.Document):
 
     dc = mongoengine.DateTimeField(verbose_name='Date and time of task creating')
     cancel_dt = mongoengine.DateTimeField(help_text='for task canceling', null=True)
+    cancel_reason = mongoengine.StringField()
 
     worker = mongoengine.EmbeddedDocumentField(Worker, null=True)
     start_dt = mongoengine.DateTimeField(null=True)

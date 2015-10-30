@@ -21,7 +21,11 @@ class MonitScheduler(multiprocessing.Process):
         print('MonitScheduler started.')
 
         # cancel not started tasks
-        models.MonitTask.objects.filter(start_dt=None).update(cancel_dt=now())
+        models.MonitTask.objects\
+            .filter(start_dt=None)\
+            .update(cancel_dt=now(), cancel_reason='restart monit scheduler')
+
+        # TODO: add canceling started tasks from dead workers
 
         while True:
             tasks = models.MonitSchedule.create_tasks()
@@ -34,6 +38,7 @@ class MonitScheduler(multiprocessing.Process):
             sleep(1)
 
 
+# TODO: add worker status publishing (heart beat)
 class MonitWorker(multiprocessing.Process):
     uuid = None
     worker_id = None

@@ -141,17 +141,31 @@ class MonitStartedTaskHandler(WebSocketHandler):
 
 def _get_task_represent(task):
     task_data = {
+        'id': str(task.id),
         'monit_name': task.monit_name,
         'host_address': task.host_address,
         'schedule_id': task.schedule_id,
+        'start_dt': None,
         'result_dt': None,
         'extra': None,
         'is_success': None,
+        'worker': None,
     }
+
+    if task.start_dt:
+        task_data['start_dt'] = task.start_dt.isoformat(sep=' ')
 
     if task.result:
         task_data['result_dt'] = task.result.dt.isoformat(sep=' ')
         task_data['extra'] = task.result.extra
         task_data['is_success'] = task.result.is_success
+
+    if task.worker:
+        task_data['worker'] = {
+            'uuid': str(task.worker.uuid),
+            'id': task.worker.id,
+            'created_dt': task.worker.created_dt.isoformat(sep=' '),
+            'host_name': task.worker.host_name,
+        }
 
     return task_data
