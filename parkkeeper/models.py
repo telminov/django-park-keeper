@@ -195,3 +195,8 @@ class MonitTask(mongoengine.Document):
             start_dt__ne=None,
             result__dt=None,
         )
+
+
+class CurrentWorker(mongoengine.Document):
+    worker = mongoengine.EmbeddedDocumentField(Worker)
+    tasks = mongoengine.ListField(mongoengine.ObjectIdField())
