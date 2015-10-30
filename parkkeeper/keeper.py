@@ -102,15 +102,17 @@ class MonitWorker(multiprocessing.Process):
 
     def add_current_task(self, task):
         # self.current_worker.update(add_to_set__tasks=task.id)
-        self.current_worker.tasks.append(task.id)
+        self.current_worker.task_ids.append(task.id)
         self.current_worker.save()
         EventPublisher.emit_event(MONIT_WORKER_EVENT, self.current_worker.to_json())
+        # print('add_current_task', self.current_worker.to_json())
 
     def rm_current_task(self, task):
         # self.current_worker.update(pull__tasks=task.id)
-        self.current_worker.tasks = [t_id for t_id in self.current_worker.tasks if t_id != task.id]
+        self.current_worker.task_ids = [t_id for t_id in self.current_worker.task_ids if t_id != task.id]
         self.current_worker.save()
         EventPublisher.emit_event(MONIT_WORKER_EVENT, self.current_worker.to_json())
+        # print('rm_current_task', self.current_worker.to_json())
 
     def register_start_task(self, task):
         task.start_dt = now()

@@ -33,7 +33,7 @@ def start_server():
 def add_routes(app):
     app.router.add_route('GET', '/monits', MonitResultHandler().get_handler)
     app.router.add_route('GET', '/waiting_tasks', MonitWaitingTaskHandler().get_handler)
-    app.router.add_route('GET', '/started_tasks', MonitStartedTaskHandler().get_handler)
+    app.router.add_route('GET', '/current_workers', MonitCurrentWorkerHandler().get_handler)
 
 
 class WebSocketHandler(metaclass=ABCMeta):
@@ -121,17 +121,17 @@ class MonitWaitingTaskHandler(WebSocketHandler):
             await EventPublisher.recv_event(MONIT_TASK_EVENT)
 
 
-class MonitStartedTaskHandler(WebSocketHandler):
+class MonitCurrentWorkerHandler(WebSocketHandler):
     need_background = True
     stop_background_timeout = 0.1
 
     async def background(self):
         while True:
-            response = {'started_tasks': []}
-            started_tasks = models.MonitTask.get_started_tasks()
-            for task in started_tasks:
-                response['started_tasks'].append(_get_task_represent(task))
-            print('started_tasks count', len(response['started_tasks']))
+            response = {'current_workers': []}
+            current_workers = models.CurrentWorker.objects.all()
+            for cur_worker in current_workers:
+                response['current_workers'].append(cur_worker.to_json())
+            print('current_workers count', len(response['current_workers']))
 
             self.ws.send_str(json.dumps(response))
 

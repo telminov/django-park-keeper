@@ -199,4 +199,7 @@ class MonitTask(mongoengine.Document):
 
 class CurrentWorker(mongoengine.Document):
     worker = mongoengine.EmbeddedDocumentField(Worker)
-    tasks = mongoengine.ListField(mongoengine.ObjectIdField())
+    task_ids = mongoengine.ListField(mongoengine.ObjectIdField())
+
+    def get_tasks(self):
+        return MonitTask.objects.filter(id__in=self.task_ids)
