@@ -13,8 +13,9 @@ class Command(BaseCommand):
 
         workers_count = options['workers_count']
         for i in range(0, workers_count):
+            worker_id = i + 1
             worker = MonitWorker()
-            worker.setup(i)
+            worker.setup(worker_id)
             worker.start()
             workers.append(worker)
 

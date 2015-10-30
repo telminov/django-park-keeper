@@ -42,7 +42,7 @@ class MonitScheduler(multiprocessing.Process):
 
     @staticmethod
     def cancel_dead_worker_tasks():
-        current_worker_uuids = models.CurrentWorker.objects.values_list('worker__uuid')
+        current_worker_uuids = models.CurrentWorker.objects.values_list('info__uuid')
         models.MonitTask.objects\
             .filter(start_dt__ne=None, result__dt=None, cancel_dt=None,
                     worker__uuid__not__in=current_worker_uuids)\
@@ -57,7 +57,7 @@ class MonitWorker(multiprocessing.Process):
             worker_id = self.uuid
 
         self.current_worker = models.CurrentWorker.objects.create(
-            worker=models.Worker(
+            info=models.Worker(
                 uuid=str(uuid.uuid4()),
                 id=str(worker_id),
                 created_dt=now(),
@@ -98,7 +98,7 @@ class MonitWorker(multiprocessing.Process):
             models.CurrentWorker.objects.filter(id=self.current_worker.id).delete()
 
     def get_worker(self) -> models.Worker:
-        return self.current_worker.worker
+        return self.current_worker.info
 
     def add_current_task(self, task):
         # self.current_worker.update(add_to_set__tasks=task.id)

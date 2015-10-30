@@ -128,15 +128,32 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
     async def background(self):
         while True:
             response = {'current_workers': []}
-            current_workers = models.CurrentWorker.objects.all()
-            for cur_worker in current_workers:
-                response['current_workers'].append(cur_worker.to_json())
+            workers = models.CurrentWorker.objects.all()
+            for worker in workers:
+                response['current_workers'].append(
+                    _get_worker_represent(worker)
+                )
             print('current_workers count', len(response['current_workers']))
 
             self.ws.send_str(json.dumps(response))
 
             # waiting new events
             await EventPublisher.recv_event(MONIT_WORKER_EVENT)
+
+
+def _get_worker_represent(worker):
+    worker_data = {
+        'uuid': str(worker.info.uuid),
+        'id': worker.info.id,
+        'created_dt': worker.info.created_dt.isoformat(sep=' '),
+        'host_name': worker.info.host_name,
+        'tasks': [],
+    }
+
+    for task in worker.get_tasks():
+        worker_data['tasks'].append(task)
+
+    return worker_data
 
 
 def _get_task_represent(task):
