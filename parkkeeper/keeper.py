@@ -26,10 +26,11 @@ class MonitScheduler(multiprocessing.Process):
         while True:
             tasks = models.MonitSchedule.create_tasks()
             if tasks:
-                for task in tasks:
-                    socket.send_json(task.to_json())
                 # task created event
                 EventPublisher.emit_event(MONIT_TASK_EVENT)
+                # send monit tasks for workers
+                for task in tasks:
+                    socket.send_json(task.to_json())
             sleep(1)
 
 

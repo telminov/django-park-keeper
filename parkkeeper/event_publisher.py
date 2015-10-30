@@ -30,7 +30,7 @@ class EventPublisher(multiprocessing.Process):
 
         try:
             while True:
-                print('EventPublisher recv_event heart beat', now().isoformat())
+                # print('EventPublisher recv_event heart beat', now().isoformat())
                 try:
                     [topic_filter, msg] = subscriber_socket.recv_multipart(flags=zmq.NOBLOCK)
                     print('EventPublisher recv_event got ', topic_filter, msg)

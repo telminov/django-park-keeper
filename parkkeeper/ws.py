@@ -98,7 +98,7 @@ class MonitResultHandler(WebSocketHandler):
             task_json = await EventPublisher.recv_event(MONIT_STATUS_EVENT)
             
             task = models.MonitTask.from_json(task_json)
-            print('task', task)
+            # print('task', task)
             response = _get_task_represent(task)
             self.ws.send_str(json.dumps(response))
 
@@ -140,11 +140,18 @@ class MonitStartedTaskHandler(WebSocketHandler):
 
 
 def _get_task_represent(task):
-    return {
+    task_data = {
         'monit_name': task.monit_name,
         'host_address': task.host_address,
         'schedule_id': task.schedule_id,
-        'result_dt': task.result.dt.isoformat(sep=' '),
-        'extra': task.result.extra,
-        'is_success': task.result.is_success,
+        'result_dt': None,
+        'extra': None,
+        'is_success': None,
     }
+
+    if task.result:
+        task_data['result_dt'] = task.result.dt.isoformat(sep=' ')
+        task_data['extra'] = task.result.extra
+        task_data['is_success'] = task.result.is_success
+
+    return task_data
