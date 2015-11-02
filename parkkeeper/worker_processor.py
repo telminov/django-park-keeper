@@ -4,47 +4,54 @@ import json
 import multiprocessing
 import asyncio
 
-import pytz
 from django.utils.timezone import now
 
-from parkkeeper.event import get_sub_socket, recv_event, async_recv_event
-from parkkeeper.const import MONIT_WORKER_EVENT
+from parkkeeper.event import get_sub_socket, async_recv_event
+from parkkeeper.const import MONIT_WORKER_EVENT, MONIT_WORKER_HEART_BEAT_PERIOD
 from parkkeeper import models
 from parkkeeper.utils import dt_from_millis
 
 
 class WorkerProcessor(multiprocessing.Process):
-
-    # def run(self):
-    #     # TODO: add to hear beats processing
-    #     self.cancel_dead_worker_tasks()
-    #
-    #     loop = asyncio.get_event_loop()
-    #     while True:
-    #         loop.run_until_complete(self.get_event())
-    #     loop.close()
-    #
-    # def _process_event(self, worker_data):
-    #     pass
-    #
-    # async def get_event(self):
-    #     msg = await async_recv_event(MONIT_WORKER_EVENT)
-    #     print('WorkerProcessor get_event', msg)
-    #     self._process_event(msg)
+    subscriber_socket = None
 
     def run(self):
-        # TODO: add to hear beats processing
         self.cancel_dead_worker_tasks()
 
-        subscriber_socket = get_sub_socket(MONIT_WORKER_EVENT)
+        self.subscriber_socket = get_sub_socket(MONIT_WORKER_EVENT)
+        loop = asyncio.get_event_loop()
         try:
-            while True:
-                msg = recv_event(subscriber_socket)
-                worker_data = json.loads(msg)
-                print('WorkerProcessor get_event', msg)
-                self._process_event(worker_data)
+            loop.create_task(self.clear_dead_workers())
+            loop.run_until_complete(self.get_event())
         finally:
-            subscriber_socket.close()
+            self.subscriber_socket.slose()
+            loop.close()
+
+    async def get_event(self):
+        while True:
+            msg = await async_recv_event(self.subscriber_socket)
+            worker_data = json.loads(msg)
+            print('WorkerProcessor get_event', msg)
+            self._process_event(worker_data)
+
+    @staticmethod
+    async def clear_dead_workers():
+        while True:
+            dead_period = MONIT_WORKER_HEART_BEAT_PERIOD * 2
+            dead_line = now() - datetime.timedelta(seconds=dead_period)
+            dead = models.CurrentWorker.objects.filter(heart_beat_dt__lte=dead_line)
+            if len(dead):
+                print('Dead workers: ', len(dead), '. Removing...')
+                dead.delete()
+            await asyncio.sleep(dead_period)
+
+    @staticmethod
+    def cancel_dead_worker_tasks():
+        current_worker_uuids = models.CurrentWorker.objects.values_list('main__uuid')
+        models.MonitTask.objects\
+            .filter(start_dt__ne=None, result__dt=None, cancel_dt=None,
+                    worker__uuid__not__in=current_worker_uuids)\
+            .update(cancel_dt=now(), cancel_reason='monit worker not alive')
 
     @staticmethod
     def _process_event(worker_data: dict):
@@ -52,7 +59,7 @@ class WorkerProcessor(multiprocessing.Process):
         if 'stop_dt' in worker_data:
             models.CurrentWorker.objects.filter(main__uuid=worker_uuid).delete()
         else:
-            created_dt = datetime.datetime.fromtimestamp(worker_data['main']['created_dt']/1000.0).replace(tzinfo=pytz.utc)
+            created_dt = dt_from_millis(worker_data['main']['created_dt'])
             worker = models.Worker(
                 uuid=worker_uuid,
                 id=worker_data['main']['id'],
@@ -79,11 +86,3 @@ class WorkerProcessor(multiprocessing.Process):
                         models.Monit.objects.create(name=monit_name)
 
             models.CurrentWorker.objects.filter(main__uuid=worker_uuid).update(**update_params)
-
-    @staticmethod
-    def cancel_dead_worker_tasks():
-        current_worker_uuids = models.CurrentWorker.objects.values_list('main__uuid')
-        models.MonitTask.objects\
-            .filter(start_dt__ne=None, result__dt=None, cancel_dt=None,
-                    worker__uuid__not__in=current_worker_uuids)\
-            .update(cancel_dt=now(), cancel_reason='monit worker not alive')
