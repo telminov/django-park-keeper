@@ -34,7 +34,7 @@ class Monit(models.Model):
         return self.name
 
     def get_current_workers(self):
-        return CurrentWorker.objects.filter(info__monit_names=self.name)
+        return CurrentWorker.objects.filter(monit_names=self.name)
 
 
 class MonitSchedule(models.Model):
@@ -170,7 +170,6 @@ class Worker(mongoengine.EmbeddedDocument):
     id = mongoengine.StringField()
     created_dt = mongoengine.DateTimeField()
     host_name = mongoengine.StringField()
-    monit_names = mongoengine.ListField(mongoengine.StringField())
 
 
 class MonitTask(mongoengine.Document):
@@ -210,8 +209,10 @@ class MonitTask(mongoengine.Document):
 
 
 class CurrentWorker(mongoengine.Document):
-    info = mongoengine.EmbeddedDocumentField(Worker)
+    main = mongoengine.EmbeddedDocumentField(Worker)
     task_ids = mongoengine.ListField(mongoengine.ObjectIdField())
+    monit_names = mongoengine.ListField(mongoengine.StringField())
+    heart_beat_dt = mongoengine.DateTimeField()
 
     def get_tasks(self):
         return MonitTask.objects.filter(id__in=self.task_ids)
