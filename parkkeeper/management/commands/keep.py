@@ -1,20 +1,24 @@
 # coding: utf-8
 from django.core.management import BaseCommand
-from parkkeeper.event_publisher import EventPublisher
-from parkkeeper.keeper import MonitScheduler
+from parkkeeper.event import EventProcessor
+from parkkeeper.task_generator import TaskGenerator
+from parkkeeper.worker_processor import WorkerProcessor
 
 
 class Command(BaseCommand):
     help = 'Start main background keeper process for scheduling jobs'
 
     def handle(self, *args, **options):
-        monit_scheduler = MonitScheduler()
-        monit_scheduler.start()
+        event_processor = EventProcessor()
+        event_processor.start()
 
-        event_publisher = EventPublisher()
-        event_publisher.start()
+        worker_processor = WorkerProcessor()
+        worker_processor.start()
 
-        for p in [monit_scheduler, event_publisher]:
+        task_generator = TaskGenerator()
+        task_generator.start()
+
+        for p in [task_generator, event_processor, worker_processor]:
             p.join()
 
 

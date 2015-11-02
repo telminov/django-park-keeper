@@ -6,7 +6,8 @@ from aiohttp import web, MsgType
 from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
-from parkkeeper.event_publisher import EventPublisher, MONIT_STATUS_EVENT, MONIT_TASK_EVENT, MONIT_WORKER_EVENT
+from parkkeeper.event import async_recv_event, get_sub_socket
+from parkkeeper.const import MONIT_STATUS_EVENT, MONIT_TASK_EVENT, MONIT_WORKER_EVENT
 
 
 def start_server():
@@ -45,13 +46,11 @@ class WebSocketHandler(metaclass=ABCMeta):
     async def process_msg(self, msg_text):
         print(msg_text)
 
-
     async def background(self):
         while not self.ws.closed:
             print(now())
             await asyncio.sleep(1)
         print('Close background')
-
 
     async def get_handler(self, request):
         self.ws = web.WebSocketResponse()
@@ -94,13 +93,17 @@ class MonitResultHandler(WebSocketHandler):
     stop_background_timeout = 0.1
 
     async def background(self):
-        while True:
-            task_json = await EventPublisher.recv_event(MONIT_STATUS_EVENT)
-            
-            task = models.MonitTask.from_json(task_json)
-            # print('task', task)
-            response = _get_task_represent(task)
-            self.ws.send_str(json.dumps(response))
+        subscriber_socket = get_sub_socket(MONIT_STATUS_EVENT)
+        try:
+            while True:
+                task_json = await async_recv_event(subscriber_socket)
+
+                task = models.MonitTask.from_json(task_json)
+                # print('task', task)
+                response = _get_task_represent(task)
+                self.ws.send_str(json.dumps(response))
+        finally:
+            subscriber_socket.close()
 
 
 class MonitWaitingTaskHandler(WebSocketHandler):
@@ -108,17 +111,21 @@ class MonitWaitingTaskHandler(WebSocketHandler):
     stop_background_timeout = 0.1
 
     async def background(self):
-        while True:
-            response = {'waiting_tasks': []}
-            waiting_tasks = models.MonitTask.get_waiting_tasks()
-            for task in waiting_tasks:
-                response['waiting_tasks'].append(_get_task_represent(task))
-            print('waiting_tasks count', len(response['waiting_tasks']))
+        subscriber_socket = get_sub_socket(MONIT_TASK_EVENT)
+        try:
+            while True:
+                response = {'waiting_tasks': []}
+                waiting_tasks = models.MonitTask.get_waiting_tasks()
+                for task in waiting_tasks:
+                    response['waiting_tasks'].append(_get_task_represent(task))
+                print('waiting_tasks count', len(response['waiting_tasks']))
 
-            self.ws.send_str(json.dumps(response))
+                self.ws.send_str(json.dumps(response))
 
-            # waiting new events
-            await EventPublisher.recv_event(MONIT_TASK_EVENT)
+                # waiting new events
+                await async_recv_event(subscriber_socket)
+        finally:
+            subscriber_socket.close()
 
 
 class MonitCurrentWorkerHandler(WebSocketHandler):
@@ -126,19 +133,23 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
     stop_background_timeout = 0.1
 
     async def background(self):
-        while True:
-            response = {'current_workers': []}
-            workers = models.CurrentWorker.objects.all()
-            for worker in workers:
-                response['current_workers'].append(
-                    _get_worker_represent(worker)
-                )
-            print('current_workers count', len(response['current_workers']))
+        subscriber_socket = get_sub_socket(MONIT_WORKER_EVENT)
+        try:
+            while True:
+                response = {'current_workers': []}
+                workers = models.CurrentWorker.objects.all()
+                for worker in workers:
+                    response['current_workers'].append(
+                        _get_worker_represent(worker)
+                    )
+                print('current_workers count', len(response['current_workers']))
 
-            self.ws.send_str(json.dumps(response))
+                self.ws.send_str(json.dumps(response))
 
-            # waiting new events
-            await EventPublisher.recv_event(MONIT_WORKER_EVENT)
+                # waiting new events
+                await async_recv_event(subscriber_socket)
+        finally:
+            subscriber_socket.close()
 
 
 def _get_worker_represent(worker):

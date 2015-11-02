@@ -9,7 +9,6 @@ from django.db import models
 from django.utils.timezone import now, make_aware
 
 
-
 class Host(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
@@ -18,6 +17,7 @@ class Host(models.Model):
     def __str__(self):
         return self.name
 
+
 class HostGroup(models.Model):
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
@@ -25,6 +25,16 @@ class HostGroup(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Monit(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    def get_current_workers(self):
+        return CurrentWorker.objects.filter(info__monit_names=self.name)
 
 
 class MonitSchedule(models.Model):
@@ -41,7 +51,7 @@ class MonitSchedule(models.Model):
     name = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
 
-    monit_name = models.CharField(max_length=255)
+    monit = models.ForeignKey(Monit)
     options_json = models.TextField(blank=True, help_text='kwargs in json format for monitoring check')
 
     count = models.IntegerField(default=1)
@@ -53,7 +63,6 @@ class MonitSchedule(models.Model):
     groups = models.ManyToManyField(HostGroup, blank=True)
 
     is_active = models.BooleanField(default=True)
-
 
     @staticmethod
     def get_latest_results() -> Dict[int, dict]:
@@ -102,7 +111,7 @@ class MonitSchedule(models.Model):
             if need_to_create:
                 for host in schedule.get_hosts():
                     task = MonitTask(
-                        monit_name=schedule.monit_name,
+                        monit_name=schedule.monit.name,
                         host_address=host.address,
                         options=schedule.get_options(),
                         schedule_id=schedule.id,
@@ -113,7 +122,7 @@ class MonitSchedule(models.Model):
         return monit_tasks
 
     def __str__(self):
-        return self.name or self.monit_name
+        return self.name or self.monit.name
 
     def save(self, *args, **kwargs):
         self.period = self._get_period()
@@ -155,11 +164,14 @@ class CheckResult(mongoengine.EmbeddedDocument):
     extra = mongoengine.DictField()
     dt = mongoengine.DateTimeField(help_text='date and time of result')
 
+
 class Worker(mongoengine.EmbeddedDocument):
     uuid = mongoengine.UUIDField()
     id = mongoengine.StringField()
     created_dt = mongoengine.DateTimeField()
     host_name = mongoengine.StringField()
+    monit_names = mongoengine.ListField(mongoengine.StringField())
+
 
 class MonitTask(mongoengine.Document):
     monit_name = mongoengine.StringField()
