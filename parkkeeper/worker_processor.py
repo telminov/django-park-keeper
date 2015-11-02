@@ -7,9 +7,9 @@ import asyncio
 from django.utils.timezone import now
 
 from parkkeeper.event import get_sub_socket, async_recv_event
-from parkkeeper.const import MONIT_WORKER_EVENT, MONIT_WORKER_HEART_BEAT_PERIOD
 from parkkeeper import models
 from parkkeeper.utils import dt_from_millis
+from parkworker.const import MONIT_WORKER_EVENT, MONIT_WORKER_HEART_BEAT_PERIOD
 
 
 class WorkerProcessor(multiprocessing.Process):

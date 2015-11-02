@@ -4,6 +4,7 @@ from django.contrib import admin
 from . import models
 from . import forms
 
+
 class MonitSchedule(admin.ModelAdmin):
     list_display = ('monit', 'name', 'is_active')
     form = forms.MonitSchedule

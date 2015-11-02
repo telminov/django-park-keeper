@@ -7,8 +7,8 @@ from django.conf import settings
 from django.utils.timezone import now
 
 from parkkeeper.event import emit_event
-from parkkeeper.const import MONIT_TASK_EVENT
 from parkkeeper import models
+from parkworker.const import MONIT_TASK_EVENT
 
 
 class TaskGenerator(multiprocessing.Process):

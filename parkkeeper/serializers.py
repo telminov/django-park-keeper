@@ -2,6 +2,7 @@
 from rest_framework import serializers
 from parkkeeper import models
 
+
 class Host(serializers.ModelSerializer):
     class Meta:
         model = models.Host
