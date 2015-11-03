@@ -3,7 +3,8 @@ import datetime
 import json
 import multiprocessing
 import asyncio
-
+import zmq
+from django.conf import settings
 from django.utils.timezone import now
 
 from parkkeeper.event import get_sub_socket, async_recv_event
@@ -13,26 +14,64 @@ from parkworker.const import MONIT_WORKER_EVENT, MONIT_WORKER_HEART_BEAT_PERIOD
 
 
 class WorkerProcessor(multiprocessing.Process):
-    subscriber_socket = None
+    context = None
 
     def run(self):
         self.cancel_dead_worker_tasks()
-
-        self.subscriber_socket = get_sub_socket(MONIT_WORKER_EVENT)
+        self.context = zmq.Context()
         loop = asyncio.get_event_loop()
         try:
             loop.create_task(self.clear_dead_workers())
-            loop.run_until_complete(self.get_event())
+            loop.create_task(self.register_workers())
+            loop.create_task(self.monitor_workers())
+            loop.run_forever()
         finally:
-            self.subscriber_socket.slose()
             loop.close()
 
-    async def get_event(self):
-        while True:
-            msg = await async_recv_event(self.subscriber_socket)
-            worker_data = json.loads(msg)
-            print('WorkerProcessor get_event', msg)
-            self._process_event(worker_data)
+    async def monitor_workers(self):
+        subscriber_socket = get_sub_socket(MONIT_WORKER_EVENT, context=self.context)
+        try:
+            while True:
+                msg = await async_recv_event(subscriber_socket)
+                worker_data = json.loads(msg)
+                # print('WorkerProcessor monitor_workers', msg)
+                self._process_worker_state(worker_data)
+        finally:
+            subscriber_socket.close()
+
+    async def register_workers(self):
+        registrator_socket = self.context.socket(zmq.REP)
+        registrator_socket.bind("tcp://*:%s" % settings.ZMQ_WORKER_REGISTRATOR_PORT)
+
+        try:
+            while True:
+                try:
+                    msg = registrator_socket.recv_string(flags=zmq.NOBLOCK)
+                    worker_data = json.loads(msg)
+                    print('register_workers', msg)
+
+                    # create worker type in not exists
+                    worker_type = models.WorkerType.create_if_not_exists(name=worker_data['main']['type'])
+
+                    # create not exists in db worker monits
+                    for monit_name in worker_data['monit_names']:
+                        if not models.Monit.objects.filter(name=monit_name).exists():
+                            models.Monit.objects.create(
+                                name=monit_name,
+                                worker_type=worker_type,
+                            )
+
+                    self._process_worker_state(worker_data)
+
+                    answer_data = {'monit_scheduler_port': worker_type.port}
+                    answer_data_json = json.dumps(answer_data)
+                    registrator_socket.send_string(answer_data_json)
+
+                except zmq.error.Again:
+                    pass
+                await asyncio.sleep(1)
+        finally:
+            registrator_socket.close()
 
     @staticmethod
     async def clear_dead_workers():
@@ -54,7 +93,7 @@ class WorkerProcessor(multiprocessing.Process):
             .update(cancel_dt=now(), cancel_reason='monit worker not alive')
 
     @staticmethod
-    def _process_event(worker_data: dict):
+    def _process_worker_state(worker_data: dict):
         worker_uuid = worker_data['main']['uuid']
         if 'stop_dt' in worker_data:
             models.CurrentWorker.objects.filter(main__uuid=worker_uuid).delete()
@@ -65,6 +104,7 @@ class WorkerProcessor(multiprocessing.Process):
                 id=worker_data['main']['id'],
                 created_dt=created_dt,
                 host_name=worker_data['main']['host_name'],
+                type=worker_data['main']['type'],
             )
 
             heart_beat_dt = dt_from_millis(worker_data['heart_beat_dt'])
@@ -79,10 +119,5 @@ class WorkerProcessor(multiprocessing.Process):
 
             if 'monit_names' in worker_data:
                 update_params['set__monit_names'] = worker_data['monit_names']
-
-                # create not exists in db worker monits
-                for monit_name in worker_data['monit_names']:
-                    if not models.Monit.objects.filter(name=monit_name).exists():
-                        models.Monit.objects.create(name=monit_name)
 
             models.CurrentWorker.objects.filter(main__uuid=worker_uuid).update(**update_params)

@@ -12,4 +12,5 @@ class MonitSchedule(admin.ModelAdmin):
 admin.site.register(models.MonitSchedule, MonitSchedule)
 admin.site.register(models.Host)
 admin.site.register(models.HostGroup)
+admin.site.register(models.WorkerType)
 admin.site.register(models.Monit)

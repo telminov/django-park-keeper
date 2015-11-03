@@ -4,7 +4,6 @@ from parkkeeper import models
 
 
 class MonitSchedule(forms.ModelForm):
-    monit_name = forms.ChoiceField()
 
     class Meta:
         model = models.MonitSchedule

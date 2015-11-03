@@ -1,8 +1,8 @@
 # coding: utf-8
 import json
-from typing import Set, Dict
-
+from typing import Set, Dict, List
 import mongoengine
+from django.db.models import Max
 from mongoengine.connection import get_db
 
 from django.db import models
@@ -27,8 +27,24 @@ class HostGroup(models.Model):
         return self.name
 
 
+class WorkerType(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    port = models.IntegerField()
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def create_if_not_exists(cls, name):
+        # TODO: make more atomic
+        max_port = cls.objects.aggregate(max_port=Max('port'))['max_port'] or 5550
+        worker_type, _ = cls.objects.get_or_create(name=name, defaults={'port': max_port+1})
+        return worker_type
+
 class Monit(models.Model):
     name = models.CharField(max_length=255, unique=True)
+    worker_type = models.ForeignKey(WorkerType)
 
     def __str__(self):
         return self.name
@@ -93,7 +109,7 @@ class MonitSchedule(models.Model):
         return latest_results
 
     @classmethod
-    def create_tasks(cls):
+    def create_tasks(cls) -> List['MonitTask']:
         """  """
         latest_results = cls.get_latest_results()
 
@@ -170,6 +186,7 @@ class Worker(mongoengine.EmbeddedDocument):
     id = mongoengine.StringField()
     created_dt = mongoengine.DateTimeField()
     host_name = mongoengine.StringField()
+    type = mongoengine.StringField()
 
 
 class MonitTask(mongoengine.Document):

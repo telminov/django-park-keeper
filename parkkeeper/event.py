@@ -15,8 +15,9 @@ def emit_event(topic_filter: str, msg: str = ''):
     socket.close()
 
 
-def get_sub_socket(topic_filter: str) -> zmq.Socket:
-    context = zmq.Context()
+def get_sub_socket(topic_filter: str, context: zmq.Context = None) -> zmq.Socket:
+    if not context:
+        context = zmq.Context()
     subscriber_socket = context.socket(zmq.SUB)
     subscriber_socket.connect("tcp://%s:%s" % (settings.ZMQ_SERVER_ADDRESS, settings.ZMQ_EVENT_PUBLISHER_PORT))
     subscriber_socket.setsockopt(zmq.SUBSCRIBE, topic_filter)
