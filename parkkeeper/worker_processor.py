@@ -20,6 +20,7 @@ class WorkerProcessor(multiprocessing.Process):
         self.cancel_dead_worker_tasks()
         self.context = zmq.Context()
         loop = asyncio.get_event_loop()
+        print('WorkerProcessor started.')
         try:
             loop.create_task(self.clear_dead_workers())
             loop.create_task(self.register_workers())
@@ -93,19 +94,24 @@ class WorkerProcessor(multiprocessing.Process):
             .update(cancel_dt=now(), cancel_reason='monit worker not alive')
 
     @staticmethod
-    def _process_worker_state(worker_data: dict):
+    def get_worker(worker_data: dict):
+        created_dt = dt_from_millis(worker_data['created_dt'])
+        worker = models.Worker(
+            uuid=worker_data['uuid'],
+            id=worker_data['id'],
+            created_dt=created_dt,
+            host_name=worker_data['host_name'],
+            type=worker_data['type'],
+        )
+        return worker
+
+    @classmethod
+    def _process_worker_state(cls, worker_data: dict):
         worker_uuid = worker_data['main']['uuid']
         if 'stop_dt' in worker_data:
             models.CurrentWorker.objects.filter(main__uuid=worker_uuid).delete()
         else:
-            created_dt = dt_from_millis(worker_data['main']['created_dt'])
-            worker = models.Worker(
-                uuid=worker_uuid,
-                id=worker_data['main']['id'],
-                created_dt=created_dt,
-                host_name=worker_data['main']['host_name'],
-                type=worker_data['main']['type'],
-            )
+            worker = cls.get_worker(worker_data['main'])
 
             heart_beat_dt = dt_from_millis(worker_data['heart_beat_dt'])
             update_params = {
@@ -121,3 +127,4 @@ class WorkerProcessor(multiprocessing.Process):
                 update_params['set__monit_names'] = worker_data['monit_names']
 
             models.CurrentWorker.objects.filter(main__uuid=worker_uuid).update(**update_params)
+

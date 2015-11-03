@@ -1,12 +1,41 @@
 # coding: utf-8
 import json
 from typing import Set, Dict, List
-import mongoengine
-from django.db.models import Max
-from mongoengine.connection import get_db
 
+from django.conf import settings
+from django.db.models import Max
 from django.db import models
 from django.utils.timezone import now, make_aware
+import mongoengine
+from mongoengine.connection import get_db
+
+from swutils.encrypt import encrypt, decrypt
+
+
+class CredentialType(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Credential(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    type = models.ForeignKey(CredentialType)
+    username = models.CharField(max_length=100)
+    encrypted_password = models.TextField()
+
+    def __str__(self):
+        return self.name
+
+    def set_password(self, plain_password, save=True):
+        self.encrypted_password = encrypt(plain_password, settings.SECRET_KEY.encode('utf-8'))
+        if save:
+            self.save()
+        return self.encrypted_password
+
+    def get_password(self):
+        return decrypt(self.encrypted_password, settings.SECRET_KEY.encode('utf-8'))
 
 
 class Host(models.Model):
@@ -16,6 +45,17 @@ class Host(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class HostCredential(models.Model):
+    host = models.ForeignKey(Host)
+    credential = models.ForeignKey(Credential)
+
+    class Meta:
+        unique_together = ('host', 'credential')
+
+    def __str__(self):
+        return '%s - %s' % (self.host, self.credential.name)
 
 
 class HostGroup(models.Model):
@@ -77,6 +117,7 @@ class MonitSchedule(models.Model):
 
     hosts = models.ManyToManyField(Host, blank=True)
     groups = models.ManyToManyField(HostGroup, blank=True)
+    credential_types = models.ManyToManyField(CredentialType, blank=True)
 
     is_active = models.BooleanField(default=True)
 
@@ -129,9 +170,21 @@ class MonitSchedule(models.Model):
                     task = MonitTask(
                         monit_name=schedule.monit.name,
                         host_address=host.address,
-                        options=schedule.get_options(),
                         schedule_id=schedule.id,
                     )
+
+                    options = schedule.get_options()
+                    # extend options by credentials
+                    for credential_type in schedule.credential_types.all():
+                        host_credential_qs = HostCredential.objects.filter(host=host, credential__type=credential_type)
+                        if host_credential_qs:
+                            credential = host_credential_qs[0].credential
+                            options.setdefault('credentials', {})[credential_type.name] = {
+                                'username': credential.username,
+                                'encrypted_password': credential.encrypted_password,
+                            }
+                    task.options = options
+
                     task.save()
                     monit_tasks.append(task)
 
@@ -151,9 +204,11 @@ class MonitSchedule(models.Model):
             hosts.update(group.hosts.all())
         return hosts
 
-    def get_options(self):
+    def get_options(self) -> dict:
         if self.options_json:
-            return json.load(self.options_json)
+            return json.loads(self.options_json)
+        else:
+            return {}
 
     def _get_period(self) -> int:
         """ count of seconds between tow checks """
