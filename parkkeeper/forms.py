@@ -1,4 +1,6 @@
 # coding: utf-8
+import json
+
 from django import forms
 from parkkeeper import models
 
@@ -8,6 +10,19 @@ class MonitSchedule(forms.ModelForm):
     class Meta:
         model = models.MonitSchedule
         fields = '__all__'
+
+    def clean_options_json(self):
+        options_json = self.cleaned_data.get('options_json')
+
+        try:
+            options = json.loads(options_json)
+        except ValueError:
+            raise forms.ValidationError('Incorrect JSON')
+
+        if type(options) is not dict:
+            raise forms.ValidationError('Options must be JavaScript object.')
+
+        return options_json
 
     def clean(self):
         all_hosts = set(self.cleaned_data['hosts'].all())
