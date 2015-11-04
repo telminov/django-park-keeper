@@ -7,7 +7,7 @@ from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
 from parkkeeper.event import async_recv_event, get_sub_socket
-from parkkeeper.const import MONIT_STATUS_EVENT, MONIT_TASK_EVENT, MONIT_WORKER_EVENT
+from parkworker.const import MONIT_STATUS_EVENT, MONIT_TASK_EVENT, MONIT_WORKER_EVENT
 
 
 def start_server():
