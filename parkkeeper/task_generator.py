@@ -34,7 +34,7 @@ class TaskGenerator(multiprocessing.Process):
                     monit = models.Monit.objects.get(name=task.monit_name)
                     socket = self._get_socket(monit.worker_type)
                     # print('Send task', task.monit_name, 'on port', monit.worker_type.port)
-                    socket.send_json(task_json)
+                    socket.send_string(task_json)
                 sleep(1)
         finally:
             for socket in self.socket_pool.values():
