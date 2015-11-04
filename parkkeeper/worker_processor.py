@@ -81,7 +81,7 @@ class WorkerProcessor(multiprocessing.Process):
             dead_line = now() - datetime.timedelta(seconds=dead_period)
             dead = models.CurrentWorker.objects.filter(heart_beat_dt__lte=dead_line)
             if len(dead):
-                print('Dead workers: ', len(dead), '. Removing...')
+                print('Dead workers: %s.' % len(dead), 'Removing...')
                 dead.delete()
             await asyncio.sleep(dead_period)
 
