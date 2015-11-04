@@ -3,6 +3,11 @@ from rest_framework import serializers
 from parkkeeper import models
 
 
+class Monit(serializers.ModelSerializer):
+    class Meta:
+        model = models.Monit
+
+
 class Host(serializers.ModelSerializer):
     class Meta:
         model = models.Host
@@ -17,6 +22,7 @@ class HostGroup(serializers.ModelSerializer):
 
 class MonitSchedule(serializers.ModelSerializer):
 
+    monit = Monit()
     # hosts = serializers.ManyRelatedField(Host())
     # groups = serializers.ManyRelatedField(HostGroup())
     all_hosts = serializers.SerializerMethodField()

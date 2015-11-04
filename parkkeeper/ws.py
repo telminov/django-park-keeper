@@ -7,6 +7,7 @@ from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
 from parkkeeper.event import async_recv_event, get_sub_socket
+from parkkeeper.utils import dt_from_millis
 from parkworker.const import MONIT_STATUS_EVENT, MONIT_TASK_EVENT, MONIT_WORKER_EVENT
 
 
@@ -38,61 +39,60 @@ def add_routes(app):
 
 
 class WebSocketHandler(metaclass=ABCMeta):
-    ws = None
     stop_msg = 'close_ws'
     need_background = False
     stop_background_timeout = 1
 
-    async def process_msg(self, msg_text):
+    async def process_msg(self, msg_text: str):
         print(msg_text)
 
-    async def background(self):
-        while not self.ws.closed:
+    async def background(self, ws: web.WebSocketResponse):
+        while not ws.closed:
             print(now())
             await asyncio.sleep(1)
         print('Close background')
 
     async def get_handler(self, request):
-        self.ws = web.WebSocketResponse()
-        await self.ws.prepare(request)
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
 
         # start background process if needed
         background_task = None
         if self.need_background:
             loop = asyncio.get_event_loop()
-            background_task = loop.create_task(self.background())
+            background_task = loop.create_task(self.background(ws))
 
         # process ws messages
-        while not self.ws.closed:
-            await self._receive_msg()
+        while not ws.closed:
+            await self._receive_msg(ws)
 
         # stop background
         if background_task:
             background_task.cancel()
 
-        return self.ws
+        return ws
 
-    async def _receive_msg(self):
-        msg = await self.ws.receive()
+    async def _receive_msg(self, ws: web.WebSocketResponse):
+        msg = await ws.receive()
 
         if msg.tp == MsgType.text:
             if msg.data == self.stop_msg:
                 print('Got stop msg')
-                await self.ws.close()
+                await ws.close()
             else:
                 await self.process_msg(msg.data)
         elif msg.tp == MsgType.close:
             print('websocket connection closed')
         elif msg.tp == MsgType.error:
             print('ws connection closed with exception %s' %
-                  self.ws.exception())
+                  ws.exception())
 
 
 class MonitResultHandler(WebSocketHandler):
     need_background = True
     stop_background_timeout = 0.1
 
-    async def background(self):
+    async def background(self, ws):
         subscriber_socket = get_sub_socket(MONIT_STATUS_EVENT)
         try:
             while True:
@@ -101,7 +101,7 @@ class MonitResultHandler(WebSocketHandler):
                 task = models.MonitTask.from_json(task_json)
                 # print('task', task)
                 response = _get_task_represent(task)
-                self.ws.send_str(json.dumps(response))
+                ws.send_str(json.dumps(response))
         finally:
             subscriber_socket.close()
 
@@ -110,7 +110,7 @@ class MonitWaitingTaskHandler(WebSocketHandler):
     need_background = True
     stop_background_timeout = 0.1
 
-    async def background(self):
+    async def background(self, ws):
         subscriber_socket = get_sub_socket(MONIT_TASK_EVENT)
         try:
             while True:
@@ -118,9 +118,9 @@ class MonitWaitingTaskHandler(WebSocketHandler):
                 waiting_tasks = models.MonitTask.get_waiting_tasks()
                 for task in waiting_tasks:
                     response['waiting_tasks'].append(_get_task_represent(task))
-                print('waiting_tasks count', len(response['waiting_tasks']))
+                # print('waiting_tasks count', len(response['waiting_tasks']))
 
-                self.ws.send_str(json.dumps(response))
+                ws.send_str(json.dumps(response))
 
                 # waiting new events
                 await async_recv_event(subscriber_socket)
@@ -132,7 +132,7 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
     need_background = True
     stop_background_timeout = 0.1
 
-    async def background(self):
+    async def background(self, ws):
         subscriber_socket = get_sub_socket(MONIT_WORKER_EVENT)
         try:
             while True:
@@ -142,9 +142,9 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
                     response['current_workers'].append(
                         _get_worker_represent(worker)
                     )
-                print('current_workers count', len(response['current_workers']))
+                # print('current_workers count', len(response['current_workers']))
 
-                self.ws.send_str(json.dumps(response))
+                ws.send_str(json.dumps(response))
 
                 # waiting new events
                 await async_recv_event(subscriber_socket)
@@ -154,15 +154,16 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
 
 def _get_worker_represent(worker):
     worker_data = {
-        'uuid': str(worker.info.uuid),
-        'id': worker.info.id,
-        'created_dt': worker.info.created_dt.isoformat(sep=' '),
-        'host_name': worker.info.host_name,
+        'uuid': str(worker.main.uuid),
+        'id': worker.main.id,
+        'created_dt': worker.main.created_dt.isoformat(sep=' '),
+        'host_name': worker.main.host_name,
         'tasks': [],
     }
 
     for task in worker.get_tasks():
-        worker_data['tasks'].append(task)
+        task_data = _get_task_represent(task)
+        worker_data['tasks'].append(task_data)
 
     return worker_data
 
@@ -181,14 +182,20 @@ def _get_task_represent(task):
     }
 
     if task.start_dt:
+        if isinstance(task.start_dt, int):
+            task.start_dt = dt_from_millis(task.start_dt)
         task_data['start_dt'] = task.start_dt.isoformat(sep=' ')
 
     if task.result:
+        if isinstance(task.result.dt, int):
+            task.result.dt = dt_from_millis(task.result.dt)
         task_data['result_dt'] = task.result.dt.isoformat(sep=' ')
         task_data['extra'] = task.result.extra
         task_data['level'] = task.result.level
 
     if task.worker:
+        if isinstance(task.worker.created_dt, int):
+            task.worker.created_dt = dt_from_millis(task.worker.created_dt)
         task_data['worker'] = {
             'uuid': str(task.worker.uuid),
             'id': task.worker.id,
