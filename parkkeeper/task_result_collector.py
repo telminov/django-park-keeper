@@ -45,9 +45,9 @@ class TaskResultCollector(multiprocessing.Process):
             update_params['set__worker'] = WorkerProcessor.get_worker(worker_data=task_data['worker'])
 
         if task_data.get('result'):
-            # print(task_data['result']['extra'])
+            # print(task_data['result'])
             update_params['set__result'] = models.CheckResult(
-                is_success=task_data['result']['is_success'],
+                level=task_data['result']['level'],
                 extra=task_data['result']['extra'],
                 dt=dt_from_millis(task_data['result']['dt']),
             )

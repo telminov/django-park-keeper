@@ -10,7 +10,7 @@ import mongoengine
 from mongoengine.connection import get_db
 
 from swutils.encrypt import encrypt, decrypt
-
+from parkworker.const import LEVEL_CHOICES
 
 class CredentialType(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -132,12 +132,12 @@ class MonitSchedule(models.Model):
                     '_id': '$schedule_id',
                     'latest_dc': {'$last': '$dc'},
                     'latest_result_dt': {'$last': '$result.dt'},
-                    'latest_is_success': {'$last': '$result.is_success'},
+                    'latest_level': {'$last': '$result.level'},
                 }
             },
             {
                 '$project': {
-                    'latest_result_dt': 1, 'latest_is_success': 1,  'latest_dc': 1, 'schedule_id': '$_id', '_id': 0
+                    'latest_result_dt': 1, 'latest_level': 1,  'latest_dc': 1, 'schedule_id': '$_id', '_id': 0
                 }
             }
         ])
@@ -231,7 +231,7 @@ class MonitSchedule(models.Model):
 
 
 class CheckResult(mongoengine.EmbeddedDocument):
-    is_success = mongoengine.BooleanField()
+    level = mongoengine.IntField(choices=LEVEL_CHOICES)
     extra = mongoengine.DictField()
     dt = mongoengine.DateTimeField(help_text='date and time of result')
 

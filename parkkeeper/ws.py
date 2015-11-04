@@ -176,7 +176,7 @@ def _get_task_represent(task):
         'start_dt': None,
         'result_dt': None,
         'extra': None,
-        'is_success': None,
+        'level': None,
         'worker': None,
     }
 
@@ -186,7 +186,7 @@ def _get_task_represent(task):
     if task.result:
         task_data['result_dt'] = task.result.dt.isoformat(sep=' ')
         task_data['extra'] = task.result.extra
-        task_data['is_success'] = task.result.is_success
+        task_data['level'] = task.result.level
 
     if task.worker:
         task_data['worker'] = {

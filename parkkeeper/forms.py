@@ -14,13 +14,14 @@ class MonitSchedule(forms.ModelForm):
     def clean_options_json(self):
         options_json = self.cleaned_data.get('options_json')
 
-        try:
-            options = json.loads(options_json)
-        except ValueError:
-            raise forms.ValidationError('Incorrect JSON')
+        if options_json:
+            try:
+                options = json.loads(options_json)
+            except ValueError:
+                raise forms.ValidationError('Incorrect JSON')
 
-        if type(options) is not dict:
-            raise forms.ValidationError('Options must be JavaScript object.')
+            if type(options) is not dict:
+                raise forms.ValidationError('Options must be JavaScript object.')
 
         return options_json
 

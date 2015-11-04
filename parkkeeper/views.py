@@ -41,13 +41,13 @@ def monit_status_latest(request, format=None):
                 '_id': {'schedule_id': '$schedule_id', 'host_address': '$host_address'},
                 'monit_name': {'$last': '$monit_name'},
                 'result_dt': {'$last': '$result.dt'},
-                'is_success': {'$last': '$result.is_success'},
+                'level': {'$last': '$result.level'},
                 'extra': {'$last': '$result.extra'},
             }
         },
         {
             '$project': {
-                'monit_name': 1, 'result_dt': 1, 'is_success': 1, 'extra': 1,
+                'monit_name': 1, 'result_dt': 1, 'level': 1, 'extra': 1,
                 'schedule_id': '$_id.schedule_id', 'host_address': '$_id.host_address', '_id': 0
             }
         }
