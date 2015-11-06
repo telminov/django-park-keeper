@@ -202,12 +202,12 @@ def _get_task_represent(task):
     if task.start_dt:
         if isinstance(task.start_dt, int):
             task.start_dt = dt_from_millis(task.start_dt)
-        task_data['start_dt'] = task.start_dt.isoformat(sep=' ')
+        task_data['start_dt'] = task.start_dt.replace(microsecond=0).isoformat(sep=' ')
 
     if task.result:
         if isinstance(task.result.dt, int):
             task.result.dt = dt_from_millis(task.result.dt)
-        task_data['result_dt'] = task.result.dt.isoformat(sep=' ')
+        task_data['result_dt'] = task.result.dt.replace(microsecond=0).isoformat(sep=' ')
         task_data['extra'] = task.result.extra
         task_data['level'] = task.result.level
 
@@ -217,7 +217,7 @@ def _get_task_represent(task):
         task_data['worker'] = {
             'uuid': str(task.worker.uuid),
             'id': task.worker.id,
-            'created_dt': task.worker.created_dt.isoformat(sep=' '),
+            'created_dt': task.worker.created_dt.replace(microsecond=0).isoformat(sep=' '),
             'host_name': task.worker.host_name,
         }
 
