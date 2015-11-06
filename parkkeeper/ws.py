@@ -8,6 +8,7 @@ from django.utils.timezone import now
 from parkkeeper import models
 from parkkeeper.event import async_recv_event, get_sub_socket
 from parkkeeper.utils import dt_from_millis
+from parkkeeper.const import MONIT_SCHEDULE_EVENT
 from parkworker.const import MONIT_STATUS_EVENT, MONIT_TASK_EVENT, MONIT_WORKER_EVENT
 
 
@@ -33,6 +34,7 @@ def start_server():
 
 
 def add_routes(app):
+    app.router.add_route('GET', '/monit_schedules', MonitSchedulesHandler().get_handler)
     app.router.add_route('GET', '/monits', MonitResultHandler().get_handler)
     app.router.add_route('GET', '/waiting_tasks', MonitWaitingTaskHandler().get_handler)
     app.router.add_route('GET', '/current_workers', MonitCurrentWorkerHandler().get_handler)
@@ -88,6 +90,21 @@ class WebSocketHandler(metaclass=ABCMeta):
                   ws.exception())
 
 
+class MonitSchedulesHandler(WebSocketHandler):
+    need_background = True
+    stop_background_timeout = 0.1
+
+    async def background(self, ws):
+        subscriber_socket = get_sub_socket(MONIT_SCHEDULE_EVENT)
+        try:
+            while True:
+                monit_schedule_json = await async_recv_event(subscriber_socket)
+                # print('monit_schedule', monit_schedule_json)
+                ws.send_str(monit_schedule_json)
+        finally:
+            subscriber_socket.close()
+
+
 class MonitResultHandler(WebSocketHandler):
     need_background = True
     stop_background_timeout = 0.1
@@ -99,7 +116,7 @@ class MonitResultHandler(WebSocketHandler):
                 task_json = await async_recv_event(subscriber_socket)
 
                 task = models.MonitTask.from_json(task_json)
-                # print('task', task)
+                # print('monit result', task_json)
                 response = _get_task_represent(task)
                 ws.send_str(json.dumps(response))
         finally:
@@ -158,6 +175,7 @@ def _get_worker_represent(worker):
         'id': worker.main.id,
         'created_dt': worker.main.created_dt.isoformat(sep=' '),
         'host_name': worker.main.host_name,
+        'type': worker.main.type,
         'tasks': [],
     }
 

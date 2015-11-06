@@ -288,3 +288,6 @@ class CurrentWorker(mongoengine.Document):
 
     def get_tasks(self):
         return MonitTask.objects.filter(id__in=self.task_ids)
+
+
+from parkkeeper import signals
