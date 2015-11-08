@@ -82,9 +82,11 @@ class WorkerType(models.Model):
         worker_type, _ = cls.objects.get_or_create(name=name, defaults={'port': max_port+1})
         return worker_type
 
+
 class Monit(models.Model):
     name = models.CharField(max_length=255, unique=True)
     worker_type = models.ForeignKey(WorkerType)
+    description = models.TextField()
 
     def __str__(self):
         return self.name

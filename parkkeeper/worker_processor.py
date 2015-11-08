@@ -55,11 +55,13 @@ class WorkerProcessor(multiprocessing.Process):
                     worker_type = models.WorkerType.create_if_not_exists(name=worker_data['main']['type'])
 
                     # create not exists in db worker monits
-                    for monit_name in worker_data['monit_names']:
+                    print(worker_data)
+                    for monit_name, description in worker_data['monits'].items():
                         if not models.Monit.objects.filter(name=monit_name).exists():
                             models.Monit.objects.create(
                                 name=monit_name,
                                 worker_type=worker_type,
+                                description=description,
                             )
 
                     self._process_worker_state(worker_data)
