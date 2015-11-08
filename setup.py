@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='django-park-keeper',
-    version='0.0.5',
+    version='0.0.6',
     description='Monitoring and services administration.',
     author='Telminov Sergey',
     url='https://github.com/telminov/django-park-keeper',
