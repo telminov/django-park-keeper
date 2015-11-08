@@ -1,5 +1,5 @@
 # coding: utf-8
-
+from bson import CodecOptions
 from django.shortcuts import render
 from mongoengine.connection import get_db
 from rest_framework.decorators import api_view
@@ -32,7 +32,8 @@ class MonitScheduleViewSet(rest_framework.viewsets.ReadOnlyModelViewSet):
 
 @api_view(['GET'])
 def monit_status_latest(request, format=None):
-    result = get_db().monit_task.aggregate(pipeline=[
+    options = CodecOptions(tz_aware=True)
+    result = get_db().get_collection('monit_task', codec_options=options).aggregate(pipeline=[
         {
             '$match': {'$or': [{'cancel_dt': None}, {'cancel_dt': {'$exists': False}}]}
         },
