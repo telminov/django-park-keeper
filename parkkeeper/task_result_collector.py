@@ -3,7 +3,7 @@ import asyncio
 import json
 import multiprocessing
 import zmq
-
+from django.utils.timezone import now
 from parkkeeper.event import get_sub_socket, async_recv_event
 from parkkeeper import models
 from parkkeeper.utils import dt_from_millis
@@ -24,7 +24,7 @@ class TaskResultCollector(multiprocessing.Process):
         finally:
             loop.close()
 
-    async def monitor_monit_tasks(self):
+    async def monitor_monit_tasks(self) -> None:
         subscriber_socket = get_sub_socket(MONIT_TASK_EVENT, context=self.context)
         try:
             while True:
@@ -36,7 +36,7 @@ class TaskResultCollector(multiprocessing.Process):
             subscriber_socket.close()
 
     @staticmethod
-    def _process_monit_task(task_data: dict):
+    def _process_monit_task(task_data: dict) -> None:
         update_params = {}
         if task_data.get('start_dt'):
             update_params['set__start_dt'] = dt_from_millis(task_data['start_dt'])
@@ -51,7 +51,16 @@ class TaskResultCollector(multiprocessing.Process):
                 extra=task_data['result']['extra'],
                 dt=dt_from_millis(task_data['result']['dt']),
             )
+            TaskResultCollector._cancel_double(task_data)
 
         if update_params:
             task_id = task_data['_id']['$oid']
             models.MonitTask.objects.filter(id=task_id).update(**update_params)
+
+    @staticmethod
+    def _cancel_double(last_task_data) -> None:
+        not_started = models.MonitTask.get_waiting_tasks().filter(
+            schedule_id=last_task_data['schedule_id'],
+            dc__lte=dt_from_millis(last_task_data['dc']['$date']),
+        )
+        not_started.update(cancel_dt=now(), cancel_reason='task not started and got result for more late same task')
