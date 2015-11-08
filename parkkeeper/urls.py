@@ -13,6 +13,7 @@ router.register('monit_schedule', views.MonitScheduleViewSet)
 urlpatterns = patterns('parkkeeper.views',
     url(r'^$', 'index'),
     url(r'^monit_status_latest/$', 'monit_status_latest'),
+    url(r'^monit_task/(.+)/$', 'monit_task'),
 )
 
 urlpatterns = format_suffix_patterns(urlpatterns)

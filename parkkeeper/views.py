@@ -41,6 +41,7 @@ def monit_status_latest(request, format=None):
             '$group': {
                 '_id': {'schedule_id': '$schedule_id', 'host_address': '$host_address'},
                 'monit_name': {'$last': '$monit_name'},
+                'id': {'$last': '$_id'},
                 'result_dt': {'$last': '$result.dt'},
                 'level': {'$last': '$result.level'},
                 'extra': {'$last': '$result.extra'},
@@ -48,9 +49,21 @@ def monit_status_latest(request, format=None):
         },
         {
             '$project': {
-                'monit_name': 1, 'result_dt': 1, 'level': 1, 'extra': 1,
+                'monit_name': 1, 'result_dt': 1, 'level': 1, 'extra': 1, 'id': 1,
                 'schedule_id': '$_id.schedule_id', 'host_address': '$_id.host_address', '_id': 0
             }
         }
     ])
-    return Response({'monit_status_latest': result})
+    status_latest = []
+    for item in result:
+        item['id'] = str(item['id'])
+        status_latest.append(item)
+    return Response({'monit_status_latest': status_latest})
+
+
+@api_view(['GET'])
+def monit_task(request, task_id, format=None):
+    task = models.MonitTask.objects.get(id=task_id)
+    task_data = task.to_mongo()
+    task_data['id'] = str(task_data.pop('_id'))
+    return Response(task_data)
