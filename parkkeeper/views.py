@@ -1,5 +1,5 @@
 # coding: utf-8
-from bson import CodecOptions
+from bson import CodecOptions, ObjectId
 from django.shortcuts import render
 from mongoengine.connection import get_db
 from rest_framework.decorators import api_view
@@ -63,7 +63,7 @@ def monit_status_latest(request, format=None):
 
 @api_view(['GET'])
 def monit_task(request, task_id, format=None):
-    task = models.MonitTask.objects.get(id=task_id)
-    task_data = task.to_mongo()
+    options = CodecOptions(tz_aware=True)
+    task_data = get_db().get_collection('monit_task', codec_options=options).find_one({'_id': ObjectId(task_id)})
     task_data['id'] = str(task_data.pop('_id'))
     return Response(task_data)
