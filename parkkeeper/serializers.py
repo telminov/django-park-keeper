@@ -8,6 +8,11 @@ class Monit(serializers.ModelSerializer):
         model = models.Monit
 
 
+class Work(serializers.ModelSerializer):
+    class Meta:
+        model = models.Work
+
+
 class Host(serializers.ModelSerializer):
     class Meta:
         model = models.Host
@@ -21,7 +26,6 @@ class HostGroup(serializers.ModelSerializer):
 
 
 class MonitSchedule(serializers.ModelSerializer):
-
     monit = Monit()
     # hosts = serializers.ManyRelatedField(Host())
     # groups = serializers.ManyRelatedField(HostGroup())

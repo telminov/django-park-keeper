@@ -3,13 +3,13 @@ from abc import ABCMeta
 import asyncio
 import json
 from aiohttp import web, MsgType
+from bson import json_util
 from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
 from parkkeeper.event import async_recv_event, get_sub_socket
-from parkkeeper.utils import dt_from_millis
 from parkkeeper.const import MONIT_SCHEDULE_EVENT
-from parkworker.const import MONIT_STATUS_EVENT, MONIT_TASK_EVENT, MONIT_WORKER_EVENT
+from parkworker.const import MONIT_STATUS_EVENT, TASK_EVENT, WORKER_EVENT
 
 
 def start_server():
@@ -114,11 +114,9 @@ class MonitResultHandler(WebSocketHandler):
         try:
             while True:
                 task_json = await async_recv_event(subscriber_socket)
-
-                task = models.MonitTask.from_json(task_json)
-                # print('monit result', task_json)
-                response = _get_task_represent(task)
-                ws.send_str(json.dumps(response))
+                task_data = json.loads(task_json, object_hook=json_util.object_hook)
+                response = _get_task_represent(task_data)
+                ws.send_str(json.dumps(response, default=json_util.default))
         finally:
             subscriber_socket.close()
 
@@ -128,16 +126,17 @@ class MonitWaitingTaskHandler(WebSocketHandler):
     stop_background_timeout = 0.1
 
     async def background(self, ws):
-        subscriber_socket = get_sub_socket(MONIT_TASK_EVENT)
+        subscriber_socket = get_sub_socket(TASK_EVENT)
         try:
             while True:
                 response = {'waiting_tasks': []}
                 waiting_tasks = models.MonitTask.get_waiting_tasks()
                 for task in waiting_tasks:
-                    response['waiting_tasks'].append(_get_task_represent(task))
+                    task_data = task.get_data()['task']
+                    response['waiting_tasks'].append(_get_task_represent(task_data))
                 # print('waiting_tasks count', len(response['waiting_tasks']))
 
-                ws.send_str(json.dumps(response))
+                ws.send_str(json.dumps(response, default=json_util.default))
 
                 # waiting new events
                 await async_recv_event(subscriber_socket)
@@ -150,7 +149,7 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
     stop_background_timeout = 0.1
 
     async def background(self, ws):
-        subscriber_socket = get_sub_socket(MONIT_WORKER_EVENT)
+        subscriber_socket = get_sub_socket(WORKER_EVENT)
         try:
             while True:
                 response = {'current_workers': []}
@@ -161,7 +160,8 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
                     )
                 # print('current_workers count', len(response['current_workers']))
 
-                ws.send_str(json.dumps(response))
+                print(response)
+                ws.send_str(json.dumps(response, default=json_util.default))
 
                 # waiting new events
                 await async_recv_event(subscriber_socket)
@@ -169,7 +169,7 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
             subscriber_socket.close()
 
 
-def _get_worker_represent(worker):
+def _get_worker_represent(worker: models.CurrentWorker) -> dict:
     worker_data = {
         'uuid': str(worker.main.uuid),
         'id': worker.main.id,
@@ -180,18 +180,18 @@ def _get_worker_represent(worker):
     }
 
     for task in worker.get_tasks():
-        task_data = _get_task_represent(task)
+        task_data = _get_task_represent(task.get_data()['task'])
         worker_data['tasks'].append(task_data)
 
     return worker_data
 
 
-def _get_task_represent(task):
+def _get_task_represent(task: dict) -> dict:
     task_data = {
-        'id': str(task.id),
-        'monit_name': task.monit_name,
-        'host_address': task.host_address,
-        'schedule_id': task.schedule_id,
+        'id': task['id'],
+        'monit_name': task['monit_name'],
+        'host_address': task['host_address'],
+        'schedule_id': task['schedule_id'],
         'start_dt': None,
         'result_dt': None,
         'extra': None,
@@ -199,26 +199,16 @@ def _get_task_represent(task):
         'worker': None,
     }
 
-    if task.start_dt:
-        if isinstance(task.start_dt, int):
-            task.start_dt = dt_from_millis(task.start_dt)
-        task_data['start_dt'] = task.start_dt.replace(microsecond=0).isoformat(sep=' ')
+    if 'start_dt' in task:
+        task_data['start_dt'] = task['start_dt'].replace(microsecond=0).isoformat(sep=' ')
 
-    if task.result:
-        if isinstance(task.result.dt, int):
-            task.result.dt = dt_from_millis(task.result.dt)
-        task_data['result_dt'] = task.result.dt.replace(microsecond=0).isoformat(sep=' ')
-        task_data['extra'] = task.result.extra
-        task_data['level'] = task.result.level
+    if 'result' in task:
+        task_data['result_dt'] = task['result']['dt'].replace(microsecond=0).isoformat(sep=' ')
+        task_data['extra'] = task['result']['extra']
+        task_data['level'] = task['result']['level']
 
-    if task.worker:
-        if isinstance(task.worker.created_dt, int):
-            task.worker.created_dt = dt_from_millis(task.worker.created_dt)
-        task_data['worker'] = {
-            'uuid': str(task.worker.uuid),
-            'id': task.worker.id,
-            'created_dt': task.worker.created_dt.replace(microsecond=0).isoformat(sep=' '),
-            'host_name': task.worker.host_name,
-        }
+    if 'worker' in task:
+        task_data['worker'] = task['worker']
+        task_data['worker']['created_dt'] = task['worker']['created_dt'].replace(microsecond=0).isoformat(sep=' ')
 
     return task_data
