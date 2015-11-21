@@ -2,14 +2,13 @@
 import json
 from typing import Set, Dict, List
 
-from bson import json_util, CodecOptions
+from bson import json_util
 from django.conf import settings
 from django.db.models import Max
 from django.db import models
 from django.utils.timezone import now, make_aware
 import mongoengine
 from mongoengine.connection import get_db
-# from parkworker.utils import json_default
 from swutils.encrypt import encrypt, decrypt
 from parkworker.const import LEVEL_CHOICES, TASK_TYPE_MONIT, TASK_TYPE_WORK
 
