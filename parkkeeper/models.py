@@ -256,7 +256,7 @@ class Schedule(models.Model):
             # results exists, check result time
             if schedule.id in latest_results:
                 latest_dc = latest_results[schedule.id]['latest_dc']
-                delta = now() - make_aware(latest_dc)
+                delta = now() - latest_dc
                 secs_from_last_task = delta.seconds
 
                 if secs_from_last_task >= schedule.period:

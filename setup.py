@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='django-park-keeper',
-    version='0.1.1',
+    version='0.1.2',
     description='Monitoring and services administration.',
     author='Telminov Sergey',
     url='https://github.com/telminov/django-park-keeper',
