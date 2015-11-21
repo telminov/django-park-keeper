@@ -116,6 +116,8 @@ class TaskGeneratorTestCase(TearDownTestCaseMixin, TestCase):
         tasks = []
         tasks.extend(factories.MonitTask.create_batch(monit_name=monit.name, size=2))
         tasks.extend(factories.WorkTask.create_batch(work_name=work.name, size=2))
+        for task in tasks:
+            self.generator.tasks.add_task(task)
 
         self.generator._push_for_workers(monit.worker_type, tasks)
         self.assertTrue(get_socket_mock.called)

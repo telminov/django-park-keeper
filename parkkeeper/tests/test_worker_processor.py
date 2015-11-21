@@ -61,7 +61,7 @@ class WorkerProcessorCase(TearDownTestCaseMixin, TestCase):
         self.assertFalse(models.Monit.objects.exists())
         self.assertFalse(models.Work.objects.exists())
 
-        worker_data_json = json.dumps(worker_data, default=json_util.default).encode('utf-8')
+        worker_data_json = json.dumps(worker_data, default=json_util.default)
         registrator_socket_mock.recv_string.side_effect = (worker_data_json, zmq.Again())
 
         loop = asyncio.get_event_loop()
