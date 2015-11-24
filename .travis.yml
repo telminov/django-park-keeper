@@ -1,0 +1,14 @@
+language: python
+python:
+  - "3.5"
+env:
+  - DJANGO=1.8
+services:
+  - mongodb
+install:
+  - pip install -e .
+  - pip install coveralls
+script:
+  - coverage run --source=parkkeeper setup.py test
+after_success:
+  - coveralls
