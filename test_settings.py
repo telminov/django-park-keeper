@@ -5,7 +5,8 @@ ROOT_URLCONF = 'parkkeeper.urls'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
+        # 'NAME': ':memory:',
+        'NAME': 'test.db',
     }
 }
 

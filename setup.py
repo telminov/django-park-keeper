@@ -17,7 +17,8 @@ setup(
     license='The MIT License',
     test_suite='runtests.runtests',
     install_requires=[
-        'sw-python-utils', 'sw-django-utils', 'django', 'pymongo==3.1', 'mongoengine==0.10.0', 'pyzmq', 'aiohttp', 'djangorestframework', 'park-worker-base',
+        'sw-python-utils', 'sw-django-utils', 'django', 'pymongo==3.1', 'mongoengine==0.10.0', 'pyzmq', 'aiohttp',
+        'djangorestframework', 'park-worker-base',
     ],
     tests_require=[
         'factory_boy',
