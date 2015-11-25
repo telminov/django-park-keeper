@@ -5,8 +5,7 @@ ROOT_URLCONF = 'parkkeeper.urls'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        # 'NAME': ':memory:',
-        'NAME': 'test.db',
+        'NAME': ':memory:',
     }
 }
 
@@ -34,7 +33,7 @@ SECRET_KEY = "123"
 TIME_ZONE = 'UTC'
 USE_TZ = True
 
-# TEST_RUNNER = 'djutils.testrunner.TestRunnerWithMongo'
+TEST_RUNNER = 'djutils.testrunner.TestRunnerWithMongo'
 
 MONGODB = {
     'NAME': 'parkkeeper',

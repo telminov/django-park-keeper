@@ -1,8 +1,6 @@
 language: python
 python:
   - "3.5"
-#sudo: false
-cache: pip
 env:
   - DJANGO=1.8
 services:
@@ -11,8 +9,6 @@ install:
   - pip install -e .
   - pip install coveralls
 script:
-  - python setup.py test
-#script:
-#  - coverage run --source=parkkeeper setup.py test
-#after_success:
-#  - coveralls
+  - coverage run --source=parkkeeper setup.py test
+after_success:
+  - coveralls
