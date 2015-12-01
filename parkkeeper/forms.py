@@ -5,11 +5,7 @@ from django import forms
 from parkkeeper import models
 
 
-class MonitSchedule(forms.ModelForm):
-
-    class Meta:
-        model = models.MonitSchedule
-        fields = '__all__'
+class BaseSchedule(forms.ModelForm):
 
     def clean_options_json(self):
         options_json = self.cleaned_data.get('options_json')
@@ -42,6 +38,20 @@ class MonitSchedule(forms.ModelForm):
             self.add_error('hosts', msg)
             self.add_error('groups', msg)
             self.add_error('credential_types', msg)
+
+
+class MonitSchedule(forms.ModelForm):
+
+    class Meta:
+        model = models.MonitSchedule
+        fields = '__all__'
+
+
+class WorkSchedule(forms.ModelForm):
+
+    class Meta:
+        model = models.WorkSchedule
+        fields = '__all__'
 
 
 class Credential(forms.ModelForm):
