@@ -160,7 +160,7 @@ class MonitCurrentWorkerHandler(WebSocketHandler):
                     )
                 # print('current_workers count', len(response['current_workers']))
 
-                print(response)
+                # print(response)
                 ws.send_str(json.dumps(response, default=json_util.default))
 
                 # waiting new events
@@ -189,7 +189,6 @@ def _get_worker_represent(worker: models.CurrentWorker) -> dict:
 def _get_task_represent(task: dict) -> dict:
     task_data = {
         'id': task['id'],
-        'monit_name': task['monit_name'],
         'host_address': task['host_address'],
         'schedule_id': task['schedule_id'],
         'start_dt': None,
@@ -198,6 +197,12 @@ def _get_task_represent(task: dict) -> dict:
         'level': None,
         'worker': None,
     }
+
+    if 'monit_name' in task:
+        task_data['monit_name'] = task['monit_name'],
+
+    if 'work_name' in task:
+        task_data['work_name'] = task['work_name'],
 
     if 'start_dt' in task:
         task_data['start_dt'] = task['start_dt'].replace(microsecond=0).isoformat(sep=' ')
