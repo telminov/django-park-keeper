@@ -39,3 +39,17 @@ class MonitSchedule(serializers.ModelSerializer):
         for host in obj.get_hosts():
             all_hosts_data.append(Host(host).data)
         return all_hosts_data
+
+
+class WorkSchedule(serializers.ModelSerializer):
+    work = Work()
+    all_hosts = serializers.SerializerMethodField()
+
+    class Meta:
+        model = models.WorkSchedule
+
+    def get_all_hosts(self, obj):
+        all_hosts_data = []
+        for host in obj.get_hosts():
+            all_hosts_data.append(Host(host).data)
+        return all_hosts_data

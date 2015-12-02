@@ -8,8 +8,8 @@ from django.conf import settings
 from django.utils.timezone import now
 from parkkeeper import models
 from parkkeeper.event import async_recv_event, get_sub_socket
-from parkkeeper.const import MONIT_SCHEDULE_EVENT
-from parkworker.const import MONIT_STATUS_EVENT, TASK_EVENT, WORKER_EVENT
+from parkkeeper.const import MONIT_SCHEDULE_EVENT, WORK_SCHEDULE_EVENT
+from parkworker.const import MONIT_STATUS_EVENT, TASK_EVENT, WORKER_EVENT, WORK_STATUS_EVENT
 
 
 def start_server():
@@ -35,7 +35,9 @@ def start_server():
 
 def add_routes(app):
     app.router.add_route('GET', '/monit_schedules', MonitSchedulesHandler().get_handler)
+    app.router.add_route('GET', '/work_schedules', WorkSchedulesHandler().get_handler)
     app.router.add_route('GET', '/monits', MonitResultHandler().get_handler)
+    app.router.add_route('GET', '/works', MonitResultHandler().get_handler)
     app.router.add_route('GET', '/waiting_tasks', MonitWaitingTaskHandler().get_handler)
     app.router.add_route('GET', '/current_workers', MonitCurrentWorkerHandler().get_handler)
 
@@ -105,12 +107,43 @@ class MonitSchedulesHandler(WebSocketHandler):
             subscriber_socket.close()
 
 
+class WorkSchedulesHandler(WebSocketHandler):
+    need_background = True
+    stop_background_timeout = 0.1
+
+    async def background(self, ws):
+        subscriber_socket = get_sub_socket(WORK_SCHEDULE_EVENT)
+        try:
+            while True:
+                work_schedule_json = await async_recv_event(subscriber_socket)
+                # print('work_schedule', work_schedule_json)
+                ws.send_str(work_schedule_json)
+        finally:
+            subscriber_socket.close()
+
+
 class MonitResultHandler(WebSocketHandler):
     need_background = True
     stop_background_timeout = 0.1
 
     async def background(self, ws):
         subscriber_socket = get_sub_socket(MONIT_STATUS_EVENT)
+        try:
+            while True:
+                task_json = await async_recv_event(subscriber_socket)
+                task_data = json.loads(task_json, object_hook=json_util.object_hook)
+                response = _get_task_represent(task_data)
+                ws.send_str(json.dumps(response, default=json_util.default))
+        finally:
+            subscriber_socket.close()
+
+
+class WorkResultHandler(WebSocketHandler):
+    need_background = True
+    stop_background_timeout = 0.1
+
+    async def background(self, ws):
+        subscriber_socket = get_sub_socket(WORK_STATUS_EVENT)
         try:
             while True:
                 task_json = await async_recv_event(subscriber_socket)

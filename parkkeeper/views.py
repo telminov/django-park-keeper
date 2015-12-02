@@ -30,6 +30,11 @@ class MonitScheduleViewSet(rest_framework.viewsets.ReadOnlyModelViewSet):
     serializer_class = serializers.MonitSchedule
 
 
+class WorkScheduleViewSet(rest_framework.viewsets.ReadOnlyModelViewSet):
+    queryset = models.WorkSchedule.objects.all()
+    serializer_class = serializers.WorkSchedule
+
+
 @api_view(['GET'])
 def monit_status_latest(request, format=None):
     options = CodecOptions(tz_aware=True)
@@ -62,8 +67,47 @@ def monit_status_latest(request, format=None):
 
 
 @api_view(['GET'])
+def work_status_latest(request, format=None):
+    options = CodecOptions(tz_aware=True)
+    result = get_db().get_collection('work_task', codec_options=options).aggregate(pipeline=[
+        {
+            '$match': {'$or': [{'cancel_dt': None}, {'cancel_dt': {'$exists': False}}]}
+        },
+        {
+            '$group': {
+                '_id': {'schedule_id': '$schedule_id', 'host_address': '$host_address'},
+                'work_name': {'$last': '$work_name'},
+                'id': {'$last': '$_id'},
+                'result_dt': {'$last': '$result.dt'},
+                'level': {'$last': '$result.level'},
+                'extra': {'$last': '$result.extra'},
+            }
+        },
+        {
+            '$project': {
+                'work_name': 1, 'result_dt': 1, 'level': 1, 'extra': 1, 'id': 1,
+                'schedule_id': '$_id.schedule_id', 'host_address': '$_id.host_address', '_id': 0
+            }
+        }
+    ])
+    status_latest = []
+    for item in result:
+        item['id'] = str(item['id'])
+        status_latest.append(item)
+    return Response({'work_status_latest': status_latest})
+
+
+@api_view(['GET'])
 def monit_task(request, task_id, format=None):
     options = CodecOptions(tz_aware=True)
     task_data = get_db().get_collection('monit_task', codec_options=options).find_one({'_id': ObjectId(task_id)})
+    task_data['id'] = str(task_data.pop('_id'))
+    return Response(task_data)
+
+
+@api_view(['GET'])
+def work_task(request, task_id, format=None):
+    options = CodecOptions(tz_aware=True)
+    task_data = get_db().get_collection('work_task', codec_options=options).find_one({'_id': ObjectId(task_id)})
     task_data['id'] = str(task_data.pop('_id'))
     return Response(task_data)
