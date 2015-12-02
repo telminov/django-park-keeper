@@ -4,12 +4,13 @@ from setuptools import setup
 
 setup(
     name='django-park-keeper',
-    version='0.1.3',
+    version='0.1.4',
     description='Monitoring and services administration.',
     author='Telminov Sergey',
     url='https://github.com/telminov/django-park-keeper',
     packages=[
         'parkkeeper',
+        'parkkeeper/datatools',
         'parkkeeper/migrations',
         'parkkeeper/management',
         'parkkeeper/management/commands',
