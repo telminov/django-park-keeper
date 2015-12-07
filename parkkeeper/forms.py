@@ -1,12 +1,11 @@
 # coding: utf-8
 import json
-
 from django import forms
 from parkkeeper import models
+from croniter import croniter
 
 
 class BaseSchedule(forms.ModelForm):
-
     def clean_options_json(self):
         options_json = self.cleaned_data.get('options_json')
 
@@ -20,6 +19,15 @@ class BaseSchedule(forms.ModelForm):
                 raise forms.ValidationError('Options must be JavaScript object.')
 
         return options_json
+
+    def clean_cron(self):
+        cron = self.cleaned_data.get('cron')
+        if cron:
+            try:
+                croniter(cron)
+            except Exception:
+                raise ValueError('Incorrect cron schedule')
+        return cron
 
     def clean(self):
         all_hosts = set(self.cleaned_data['hosts'].all())
@@ -39,16 +47,22 @@ class BaseSchedule(forms.ModelForm):
             self.add_error('groups', msg)
             self.add_error('credential_types', msg)
 
+        if not (self.cleaned_data['count'] or self.cleaned_data['interval'] or self.cleaned_data['time_units']) \
+                and not self.cleaned_data['cron']:
+            msg = 'You have to specify or period, or cron-style schedule'
+            for field in ('count', 'interval', 'time_units', 'cron'):
+                self.add_error(field, msg)
+
+        return self.cleaned_data
+
 
 class MonitSchedule(forms.ModelForm):
-
     class Meta:
         model = models.MonitSchedule
         fields = '__all__'
 
 
 class WorkSchedule(forms.ModelForm):
-
     class Meta:
         model = models.WorkSchedule
         fields = '__all__'
@@ -59,7 +73,7 @@ class Credential(forms.ModelForm):
 
     class Meta:
         model = models.Credential
-        fields = ('name', 'type', 'username', )
+        fields = ('name', 'type', 'username',)
 
     def clean_password(self):
         password = self.cleaned_data.get('password')

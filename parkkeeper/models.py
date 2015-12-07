@@ -2,12 +2,15 @@
 import json
 from typing import Set, Dict, List
 
+import datetime
+
 from bson import json_util
 from django.conf import settings
 from django.db.models import Max
 from django.db import models
 from django.utils.timezone import now, make_aware
 import mongoengine
+from croniter import croniter
 from mongoengine.connection import get_db
 from swutils.encrypt import encrypt, decrypt
 from parkworker.const import LEVEL_CHOICES, TASK_TYPE_MONIT, TASK_TYPE_WORK
@@ -148,6 +151,9 @@ class Work(models.Model):
                 )
 
 
+class NoCronException(Exception): pass
+
+
 class Schedule(models.Model):
     SEC_UNIT = 'seconds'
     MINUTE_UNIT = 'minutes'
@@ -164,10 +170,13 @@ class Schedule(models.Model):
 
     options_json = models.TextField(blank=True, help_text='kwargs in json format for task')
 
-    count = models.IntegerField(default=1)
-    interval = models.IntegerField(default=1)
+    count = models.IntegerField(default=1, null=True, blank=True)
+    interval = models.IntegerField(default=1, null=True, blank=True)
     time_units = models.CharField(max_length=50, choices=TIME_UNIT_CHOICES, default=MINUTE_UNIT)
-    period = models.IntegerField(editable=False, help_text='in seconds')
+    period = models.IntegerField(editable=False, help_text='in seconds', null=True)
+
+    cron = models.CharField(max_length=50, verbose_name='Cron-style schedule', help_text='* * * * *',
+                            default='', blank=True)
 
     hosts = models.ManyToManyField(Host, blank=True)
     groups = models.ManyToManyField(HostGroup, blank=True)
@@ -209,6 +218,14 @@ class Schedule(models.Model):
         for group in self.groups.all():
             hosts.update(group.hosts.all())
         return hosts
+
+    def get_next_cron_dt(self, from_dt: datetime.datetime):
+        if not self.cron:
+            raise NoCronException('Schedule %s with id %s have no cron schedule.' % (type(self), self.id))
+
+        cron_iter = croniter(self.cron, from_dt)
+        next_dt = cron_iter.get_next(datetime.datetime)
+        return next_dt
 
     def init_task(self):
         raise NotImplemented()
@@ -259,8 +276,12 @@ class Schedule(models.Model):
                 delta = now() - latest_dc
                 secs_from_last_task = delta.seconds
 
-                if secs_from_last_task >= schedule.period:
-                    need_to_create = True
+                if schedule.cron:
+                    if now() >= schedule.get_next_cron_dt(latest_dc):
+                        need_to_create = True
+                elif schedule.period:
+                    if secs_from_last_task >= schedule.period:
+                        need_to_create = True
 
             else:
                 # not results before
@@ -292,9 +313,12 @@ class Schedule(models.Model):
 
     def _get_period(self) -> int:
         """ count of seconds between tow checks """
-        sec = self._get_seconds_in_unit()
-        interval = (self.interval / self.count) * sec
-        return interval
+        if self.interval and self.count and self.time_units:
+            sec = self._get_seconds_in_unit()
+            interval = (self.interval / self.count) * sec
+            return interval
+        else:
+            return None
 
     def _get_seconds_in_unit(self) -> int:
         if self.time_units == self.SEC_UNIT:
